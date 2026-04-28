@@ -1,27 +1,39 @@
-from main import app
 from app.core.database import SessionLocal
 from app.models.user import User, UserRole
 from app.core.security import get_password_hash
-from app.core.security import get_password_hash
+import getpass
 
 db = SessionLocal()
 
-# Check if admin already exists
-admin_email = "admin@ticketing.com"
-admin = db.query(User).filter(User.email == admin_email).first()
+try:
+    admin_email = "admin@ticketing.com"
 
-if not admin:
-    print("Creating admin user...")
-    admin = User(
-        email=admin_email,
-        full_name="System Admin",
-        hashed_password=get_password_hash("admin123"),
-        role=UserRole.admin
-    )
-    db.add(admin)
-    db.commit()
-    print("Admin user created successfully!")
-else:
-    print("Admin user already exists!")
+    admin = db.query(User).filter(User.email == admin_email).first()
 
-db.close()
+    if admin:
+        print("⚠️ Admin user already exists!")
+    else:
+        print("🔐 Create Admin User")
+
+        # ✅ Secure password input
+        password = getpass.getpass("Enter admin password: ")
+
+        admin = User(
+            email=admin_email,
+            full_name="System Admin",
+            hashed_password=get_password_hash(password),
+            role=UserRole.admin,
+            is_active=True
+        )
+
+        db.add(admin)
+        db.commit()
+
+        print("✅ Admin user created successfully!")
+
+except Exception as e:
+    db.rollback()
+    print("❌ Error creating admin:", str(e))
+
+finally:
+    db.close()

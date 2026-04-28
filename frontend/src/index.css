@@ -1,21 +1,47 @@
+/* ------------------- FONTS ------------------- */
 @import url('https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap');
+
 @import "tailwindcss";
 
-@theme {
-  --font-sans: 'Outfit', sans-serif;
-  --color-primary: #3b82f6;
-  --color-glass-white: rgba(255, 255, 255, 0.08);
-  --color-glass-border: rgba(255, 255, 255, 0.15);
-  
-  --animate-fade-in-up: fade-in-up 0.5s ease-out;
-  --animate-pulse-slow: pulse-slow 3s infinite ease-in-out;
-  --animate-float: float 6s infinite ease-in-out;
+/* ------------------- BASE ------------------- */
+@layer base {
+  body {
+    @apply bg-slate-900 text-slate-100;
+    font-family: 'Outfit', sans-serif;
+  }
 
+  input,
+  select,
+  textarea {
+    @apply bg-white/5 border border-white/10 text-slate-100;
+  }
+
+  input:focus,
+  select:focus,
+  textarea:focus {
+    @apply bg-white/10 border-blue-500/50 outline-none ring-2 ring-blue-500/25;
+  }
+
+  input::placeholder,
+  textarea::placeholder {
+    @apply text-white/40;
+  }
+
+  option {
+    background-color: #1e293b;
+    color: #f8fafc;
+  }
+}
+
+
+/* ------------------- ANIMATIONS ------------------- */
+@layer utilities {
   @keyframes fade-in-up {
     from {
       opacity: 0;
       transform: translateY(20px);
     }
+
     to {
       opacity: 1;
       transform: translateY(0);
@@ -23,83 +49,81 @@
   }
 
   @keyframes pulse-slow {
-    0%, 100% { opacity: 0.8; }
-    50% { opacity: 0.4; }
+
+    0%,
+    100% {
+      opacity: 0.8;
+    }
+
+    50% {
+      opacity: 0.4;
+    }
   }
 
   @keyframes float {
-    0%, 100% { transform: translateY(0); }
-    50% { transform: translateY(-10px); }
+
+    0%,
+    100% {
+      transform: translateY(0);
+    }
+
+    50% {
+      transform: translateY(-10px);
+    }
+  }
+
+  .animate-fade-in-up {
+    animation: fade-in-up 0.5s ease-out;
+  }
+
+  .animate-pulse-slow {
+    animation: pulse-slow 3s infinite ease-in-out;
+  }
+
+  .animate-float {
+    animation: float 6s infinite ease-in-out;
   }
 }
 
-@layer base {
-  body {
-    background-color: #0f172a;
-    color: #f8fafc;
-    font-family: 'Outfit', sans-serif;
-  }
-  
-  input, select, textarea {
-    background-color: rgba(255, 255, 255, 0.05) !important;
-    border-color: rgba(255, 255, 255, 0.1) !important;
-    color: #f8fafc !important;
-  }
-  
-  option {
-    background-color: #1e293b !important;
-    color: #f8fafc !important;
-  }
-  
-  input:focus, select:focus, textarea:focus {
-    background-color: rgba(255, 255, 255, 0.1) !important;
-    border-color: rgba(59, 130, 246, 0.5) !important;
-    outline: none !important;
-    box-shadow: 0 0 0 2px rgba(59, 130, 246, 0.25) !important;
-  }
-  
-  input::placeholder, textarea::placeholder {
-    color: rgba(255, 255, 255, 0.4) !important;
-  }
-}
 
+/* ------------------- GLASS UI ------------------- */
 @layer utilities {
   .glass-card {
-    @apply bg-white/10 backdrop-blur-md border border-white/10 shadow-[0_8px_32px_0_rgba(0,0,0,0.3)] rounded-xl;
+    @apply bg-white/10 backdrop-blur-md border border-white/10 shadow-lg rounded-xl;
   }
-  
+
   .glass-header {
-    @apply bg-white/5 backdrop-blur-lg border-b border-white/10 shadow-sm;
+    @apply bg-white/5 backdrop-blur-lg border-b border-white/10;
   }
-  
+
   .glass-button {
-    @apply bg-blue-600/80 hover:bg-blue-500/90 backdrop-blur-sm text-white border border-blue-400/30 shadow-[0_0_15px_rgba(59,130,246,0.5)] transition-all duration-300;
+    @apply bg-blue-600/80 hover:bg-blue-500/90 text-white border border-blue-400/30 shadow-lg transition-all duration-300;
   }
 
   .glass-button-secondary {
-    @apply bg-white/5 hover:bg-white/15 backdrop-blur-sm text-white border border-white/20 transition-all duration-300;
+    @apply bg-white/5 hover:bg-white/15 text-white border border-white/20 transition-all duration-300;
   }
-  
+
   .glass-button-danger {
-    @apply bg-red-600/80 hover:bg-red-500/90 backdrop-blur-sm text-white border border-red-400/30 shadow-[0_0_15px_rgba(220,38,38,0.5)] transition-all duration-300;
+    @apply bg-red-600/80 hover:bg-red-500/90 text-white border border-red-400/30 shadow-lg transition-all duration-300;
   }
-  
+
   .glass-input {
-    @apply bg-white/5 border border-white/10 rounded-lg text-white focus:ring-2 focus:ring-blue-500/50 focus:border-blue-500/50 placeholder-white/30;
+    @apply bg-white/5 border border-white/10 rounded-lg text-white placeholder-white/30 focus:ring-2 focus:ring-blue-500/50;
   }
 
   .text-gradient {
     @apply bg-clip-text text-transparent bg-gradient-to-r from-blue-400 to-indigo-300;
   }
-  
+
   .table-glass th {
-    @apply bg-white/5 text-slate-300 font-medium tracking-wider border-b border-white/10;
+    @apply bg-white/5 text-slate-300 font-medium border-b border-white/10;
   }
-  
+
   .table-glass td {
     @apply border-b border-white/5 text-slate-200;
   }
-  
+
   .table-glass tr:hover {
     @apply bg-white/5 transition-colors;
   }

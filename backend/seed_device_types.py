@@ -1,6 +1,5 @@
 from app.core.database import SessionLocal
 from app.models.device import DeviceType
-from main import app
 
 db = SessionLocal()
 
@@ -18,13 +17,34 @@ types = [
     {"name": "Printer", "description": "Office and network printers"},
     {"name": "Router / Switch", "description": "Networking hardware"},
     {"name": "Mobile Device", "description": "Phones and tablets"},
-    {"name": "Accessories (General)", "description": "General peripherals and cables"}
+    {"name": "Accessories (General)", "description": "General peripherals and cables"},
 ]
 
-for t in types:
-    if not db.query(DeviceType).filter(DeviceType.name == t["name"]).first():
-        db.add(DeviceType(**t))
+try:
+    print("🌱 Seeding device types...\n")
 
-db.commit()
-print("Device types seeded successfully!")
-db.close()
+    added_count = 0
+    skipped_count = 0
+
+    for t in types:
+        exists = db.query(DeviceType).filter(DeviceType.name == t["name"]).first()
+
+        if not exists:
+            db.add(DeviceType(**t))
+            added_count += 1
+            print(f"✅ Added: {t['name']}")
+        else:
+            skipped_count += 1
+            print(f"⚠️ Skipped (already exists): {t['name']}")
+
+    db.commit()
+
+    print("\n🎉 Seeding completed!")
+    print(f"Added: {added_count} | Skipped: {skipped_count}")
+
+except Exception as e:
+    db.rollback()
+    print("❌ Error during seeding:", str(e))
+
+finally:
+    db.close()

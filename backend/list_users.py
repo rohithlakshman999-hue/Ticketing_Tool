@@ -1,12 +1,29 @@
 from app.core.database import SessionLocal
 from app.models.user import User
-from app.models.company import Company
-from app.models.ticket import Ticket
-from app.models.device import Device, DeviceType
 
 db = SessionLocal()
-users = db.query(User).all()
-print("Current Users in Database:")
-for u in users:
-    print(f"ID: {u.id} | Email: {u.email} | Role: {u.role}")
-db.close()
+
+try:
+    users = db.query(User).all()
+
+    if not users:
+        print("⚠️ No users found in database.")
+    else:
+        print("\n📋 Current Users in Database:\n")
+
+        for u in users:
+            company_name = u.company.name if u.company else "No Company"
+
+            print(
+                f"ID: {u.id} | "
+                f"Email: {u.email} | "
+                f"Role: {u.role.value} | "
+                f"Active: {u.is_active} | "
+                f"Company: {company_name}"
+            )
+
+except Exception as e:
+    print("❌ Error fetching users:", str(e))
+
+finally:
+    db.close()

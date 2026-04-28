@@ -1,8 +1,10 @@
 from pydantic import BaseModel
-from typing import Optional
+from typing import Optional, List
 from datetime import datetime
 from ..models.ticket import TicketStatus, TicketPriority
 
+
+# ------------------- BASE -------------------
 
 class TicketBase(BaseModel):
     title: str
@@ -11,6 +13,8 @@ class TicketBase(BaseModel):
     category: str
     priority: TicketPriority = TicketPriority.low
 
+
+# ------------------- CREATE / UPDATE -------------------
 
 class TicketCreate(TicketBase):
     customer_email: Optional[str] = None
@@ -38,6 +42,8 @@ class TicketProgressCreate(BaseModel):
     message: str
 
 
+# ------------------- COMMENTS -------------------
+
 class TicketCommentBase(BaseModel):
     message: str
     is_internal: bool = False
@@ -58,6 +64,8 @@ class TicketCommentResponse(TicketCommentBase):
         from_attributes = True
 
 
+# ------------------- HISTORY -------------------
+
 class TicketHistoryResponse(BaseModel):
     id: int
     ticket_id: int
@@ -72,6 +80,8 @@ class TicketHistoryResponse(BaseModel):
         from_attributes = True
 
 
+# ------------------- ACTIVITY -------------------
+
 class TicketActivityResponse(BaseModel):
     id: int
     status: str
@@ -83,8 +93,12 @@ class TicketActivityResponse(BaseModel):
         from_attributes = True
 
 
+# ------------------- DEVICE -------------------
+
 from .device import DeviceResponse
 
+
+# ------------------- ENGINEER -------------------
 
 class EngineerInfo(BaseModel):
     id: int
@@ -95,20 +109,30 @@ class EngineerInfo(BaseModel):
         from_attributes = True
 
 
+# ------------------- FINAL RESPONSE -------------------
+
 class TicketResponse(TicketBase):
     id: int
     status: TicketStatus
+
     customer_id: int
     customer_name: Optional[str] = None
+
     assigned_technician_id: Optional[int] = None
     assigned_technician_name: Optional[str] = None
+
     company_id: Optional[int] = None
-    company_name: Optional[str] = None
+    company_name: Optional[str] = None  # ✅ YOUR FEATURE
+
     device_id: Optional[int] = None
+
     created_at: datetime
     updated_at: datetime
-    comments: list[TicketCommentResponse] = []
-    history: list[TicketHistoryResponse] = []
+
+    # ⚠️ FIX: avoid mutable default bug
+    comments: List[TicketCommentResponse] = []
+    history: List[TicketHistoryResponse] = []
+
     device: Optional[DeviceResponse] = None
 
     class Config:

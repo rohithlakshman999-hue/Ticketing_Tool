@@ -1,41 +1,32 @@
-from sqlalchemy import Column, Integer, String, Text, ForeignKey, DateTime, Date, Boolean
-from sqlalchemy.orm import relationship
+from sqlalchemy import Column, Integer, String, DateTime
 from datetime import datetime
+from sqlalchemy.orm import relationship
+
 from ..core.database import Base
 
-class DeviceType(Base):
-    __tablename__ = "device_types"
+
+class Company(Base):
+    __tablename__ = "companies"
 
     id = Column(Integer, primary_key=True, index=True)
-    name = Column(String, index=True, unique=True) # Laptop, Desktop, Router, etc.
-    description = Column(Text, nullable=True)
-    
-    # Relationships
-    devices = relationship("Device", back_populates="device_type")
 
+    # Unique company name
+    name = Column(String, unique=True, index=True, nullable=False)
 
-class Device(Base):
-    __tablename__ = "devices"
-
-    id = Column(Integer, primary_key=True, index=True)
-    product_name = Column(String, index=True)
-    model_number = Column(String, index=True)
-    serial_number = Column(String, unique=True, index=True)
-    description = Column(Text, nullable=True)
-    
-    purchase_date = Column(Date, nullable=True)
-    warranty_expiry_date = Column(Date, nullable=True)
-    warranty_available = Column(Boolean, default=False)
-    warranty_duration = Column(String, nullable=True)  # e.g., "12 months", "2 years"
-    
-    device_type_id = Column(Integer, ForeignKey("device_types.id"), index=True)
-    customer_id = Column(Integer, ForeignKey("users.id"), index=True)
-    company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
-    
     created_at = Column(DateTime, default=datetime.utcnow)
-    
-    # Relationships
-    device_type = relationship("DeviceType", back_populates="devices")
-    customer = relationship("User", foreign_keys=[customer_id], backref="devices")
-    company = relationship("Company", backref="devices")
-    tickets = relationship("Ticket", back_populates="device")
+
+    # ------------------- RELATIONSHIPS -------------------
+
+    # Users in this company
+    users = relationship(
+        "User",
+        back_populates="company",
+        cascade="all, delete-orphan"
+    )
+
+    # Tickets raised under this company
+    tickets = relationship(
+        "Ticket",
+        back_populates="company"
+        # ❌ Removed cascade here (important)
+    )

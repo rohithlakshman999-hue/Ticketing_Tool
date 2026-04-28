@@ -6,37 +6,66 @@ from dotenv import load_dotenv
 from fastapi import APIRouter
 from pydantic import BaseModel
 
+# Load env variables
 load_dotenv()
 
 router = APIRouter()
 
-# Detect and configure AI provider
-api_key = os.getenv("OPENAI_API_KEY") or os.getenv("GEMINI_API_KEY") or "mock-key"
-provider = "none"
+# Get API keys
+OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
+GEMINI_API_KEY = os.getenv("AIzaSyAqzgjNeLZ6gCektZkcyuZCGY3X4dzQIOs")
 
-if api_key.startswith("sk-"):
+provider = "mock"
+client = None
+
+# Detect provider safely
+if OPENAI_API_KEY and OPENAI_API_KEY.startswith("sk-"):
     provider = "openai"
-    client = OpenAI(api_key=api_key)
-elif api_key.startswith("AIza"):
+    client = OpenAI(api_key=OPENAI_API_KEY)
+
+elif GEMINI_API_KEY and GEMINI_API_KEY.startswith("AIza"):
     provider = "gemini"
-    genai.configure(api_key=api_key)
+    genai.configure(api_key=GEMINI_API_KEY)
+
 else:
     provider = "mock"
+
+
+# ------------------- MODELS -------------------
 
 class TextClassificationRequest(BaseModel):
     description: str
 
+
 class ChatMessage(BaseModel):
     message: str
 
+
+# ------------------- CLASSIFICATION -------------------
+
 @router.post("/classify")
 def classify_issue(req: TextClassificationRequest):
+
     if provider == "mock":
-        return {"category": "Hardware", "priority": "medium", "mocked": True}
-        
-    prompt = f"""You are an Expert IT Support Dispatcher.
-Analyze this issue and return ONLY a JSON object with 'category' (Hardware, Software, Network) and 'priority' (low, medium, high).
-Description: {req.description}"""
+        return {
+            "category": "Hardware",
+            "priority": "medium",
+            "mocked": True
+        }
+
+    prompt = f"""
+You are an Expert IT Support Dispatcher.
+
+Analyze this issue and return ONLY JSON:
+
+{{
+  "category": "Hardware | Software | Network",
+  "priority": "low | medium | high"
+}}
+
+Description:
+{req.description}
+"""
 
     try:
         if provider == "openai":
@@ -46,28 +75,54 @@ Description: {req.description}"""
                 response_format={"type": "json_object"}
             )
             data = json.loads(response.choices[0].message.content)
-        else:
-            model = genai.GenerativeModel('gemini-1.5-flash')
+
+        elif provider == "gemini":
+            model = genai.GenerativeModel("gemini-1.5-flash")
             response = model.generate_content(prompt)
-            clean_text = response.text.replace("```json", "").replace("```", "").strip()
+
+            clean_text = (
+                response.text
+                .replace("```json", "")
+                .replace("```", "")
+                .strip()
+            )
+
             data = json.loads(clean_text)
-            
-        return {"category": data.get("category", "Other"), "priority": data.get("priority", "medium"), "mocked": False}
+
+        return {
+            "category": data.get("category", "Other"),
+            "priority": data.get("priority", "medium"),
+            "mocked": False
+        }
+
     except Exception as e:
-        return {"category": "Software", "priority": "low", "error": str(e)}
+        return {
+            "category": "Software",
+            "priority": "low",
+            "error": str(e)
+        }
+
+
+# ------------------- CHATBOT -------------------
 
 @router.post("/chat")
 async def chatbot_reply(msg: ChatMessage):
-    if provider == "mock":
-        return {"reply": "I'm in offline mode. Please check your AI API key configuration in the .env file.", "mocked": True}
 
-    system_prompt = """You are 'Tech-Solve AI', a Tier 3 Senior Technical Support Engineer.
-Your goal is to provide 'proper solutions'—meaning expert, step-by-step, and technically accurate troubleshooting.
+    if provider == "mock":
+        return {
+            "reply": "⚠️ AI is in offline mode. Please configure your API key.",
+            "mocked": True
+        }
+
+    system_prompt = """
+You are 'Tech-Solve AI', a Tier 3 Senior Technical Support Engineer.
+
 Rules:
-1. Always start with a brief empathetic sentence.
-2. Provide 3-4 numbered technical steps.
-3. If the issue sounds like hardware failure, suggest checking the warranty in the 'Devices' section.
-4. Keep the total response concise but high-value."""
+1. Start with a short empathetic sentence.
+2. Give 3–4 clear troubleshooting steps.
+3. If hardware issue → suggest checking warranty.
+4. Keep response concise and useful.
+"""
 
     try:
         if provider == "openai":
@@ -79,11 +134,18 @@ Rules:
                 ]
             )
             reply = response.choices[0].message.content
-        else:
-            model = genai.GenerativeModel('gemini-1.5-flash', system_instruction=system_prompt)
+
+        elif provider == "gemini":
+            model = genai.GenerativeModel(
+                "gemini-1.5-flash",
+                system_instruction=system_prompt
+            )
             response = model.generate_content(msg.message)
             reply = response.text
-            
+
         return {"reply": reply}
+
     except Exception as e:
-        return {"reply": f"Technical diagnostic failed: {str(e)}"}
+        return {
+            "reply": f"⚠️ AI service error: {str(e)}"
+        }

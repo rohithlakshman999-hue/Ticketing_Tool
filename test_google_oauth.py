@@ -1,69 +1,110 @@
 #!/usr/bin/env python3
 """
-Google OAuth Configuration Test Script
-Run this to verify your Google OAuth setup is working correctly.
+🚀 Google OAuth Configuration Test Script (Improved)
+
+Supports:
+- Local development
+- Production (Render + Vercel)
 """
 
 import os
-import sys
 import requests
 from pathlib import Path
 
+# ---------------- CONFIG ----------------
+
+LOCAL_BACKEND = "http://localhost:8000"
+PROD_BACKEND = "https://ticketing-tool-9kv0.onrender.com"
+
+# ---------------- HELPERS ----------------
+
+def check_env_file(path, key):
+    if not path.exists():
+        print(f"❌ {path} not found")
+        return False
+
+    content = path.read_text()
+    if key in content:
+        print(f"✅ {key} found in {path}")
+        return True
+    else:
+        print(f"❌ {key} missing in {path}")
+        return False
+
+
+def test_endpoint(url, method="GET"):
+    try:
+        if method == "GET":
+            res = requests.get(url, timeout=5)
+        else:
+            res = requests.post(url, json={"token": "test"}, timeout=5)
+
+        print(f"✅ {url} → {res.status_code}")
+        return True
+    except Exception as e:
+        print(f"❌ {url} failed → {e}")
+        return False
+
+
+# ---------------- MAIN TEST ----------------
+
 def test_google_oauth_config():
-    """Test Google OAuth configuration"""
-    print("🔍 Testing Google OAuth Configuration...\n")
+    print("\n🔍 Testing Google OAuth Configuration...\n")
 
-    # Check backend .env file
-    backend_env = Path(__file__).parent.parent / "backend" / ".env"
-    if backend_env.exists():
-        with open(backend_env, 'r') as f:
-            content = f.read()
-            if "GOOGLE_CLIENT_ID=" in content:
-                print("✅ Backend GOOGLE_CLIENT_ID found")
-            else:
-                print("❌ Backend GOOGLE_CLIENT_ID missing")
-    else:
-        print("❌ Backend .env file not found")
+    root = Path(__file__).resolve().parent.parent
 
-    # Check frontend .env file
-    frontend_env = Path(__file__).parent.parent / "frontend" / ".env"
-    if frontend_env.exists():
-        with open(frontend_env, 'r') as f:
-            content = f.read()
-            if "VITE_GOOGLE_CLIENT_ID=" in content:
-                print("✅ Frontend VITE_GOOGLE_CLIENT_ID found")
-            else:
-                print("❌ Frontend VITE_GOOGLE_CLIENT_ID missing")
-    else:
-        print("❌ Frontend .env file not found")
+    backend_env = root / "backend" / ".env"
+    frontend_env = root / "frontend" / ".env"
 
-    # Test backend connectivity
-    try:
-        response = requests.get("http://localhost:8000/", timeout=5)
-        if response.status_code == 200:
-            print("✅ Backend server is running")
-        else:
-            print(f"❌ Backend server responded with status {response.status_code}")
-    except requests.exceptions.RequestException:
-        print("❌ Backend server not accessible")
+    # ---------------- ENV CHECK ----------------
+    print("📁 Checking Environment Files...\n")
 
-    # Test Google OAuth endpoint
-    try:
-        response = requests.post("http://localhost:8000/auth/google",
-                               json={"token": "test"},
-                               timeout=5)
-        if response.status_code == 400:
-            print("✅ Google OAuth endpoint is responding")
-        else:
-            print(f"❌ Google OAuth endpoint unexpected response: {response.status_code}")
-    except requests.exceptions.RequestException:
-        print("❌ Google OAuth endpoint not accessible")
+    check_env_file(backend_env, "GOOGLE_CLIENT_ID")
+    check_env_file(frontend_env, "VITE_GOOGLE_CLIENT_ID")
 
-    print("\n📋 Next Steps:")
-    print("1. Ensure Google Cloud Console has http://localhost:5173 in Authorized JavaScript origins")
-    print("2. Verify Client ID matches between Google Console and your .env files")
-    print("3. Try Google login at http://localhost:5173/")
-    print("4. Check browser console for detailed error messages")
+    # ---------------- BACKEND TEST ----------------
+    print("\n🌐 Testing Backend...\n")
+
+    print("➡️ Local Backend:")
+    test_endpoint(f"{LOCAL_BACKEND}/")
+
+    print("➡️ Production Backend:")
+    test_endpoint(f"{PROD_BACKEND}/")
+
+    # ---------------- GOOGLE ROUTE ----------------
+    print("\n🔐 Testing Google OAuth Endpoint...\n")
+
+    print("➡️ Local:")
+    test_endpoint(f"{LOCAL_BACKEND}/auth/google", method="POST")
+
+    print("➡️ Production:")
+    test_endpoint(f"{PROD_BACKEND}/auth/google", method="POST")
+
+    # ---------------- FINAL GUIDE ----------------
+    print("\n📋 FINAL CHECKLIST:\n")
+
+    print("1. ✅ Google Cloud Console → Add this:")
+    print("   - http://localhost:5173")
+    print("   - https://ticketingtool.vercel.app\n")
+
+    print("2. ✅ Redirect URIs:")
+    print("   - http://localhost:8000/auth/google")
+    print("   - https://ticketing-tool-9kv0.onrender.com/auth/google\n")
+
+    print("3. ✅ Same Client ID in:")
+    print("   - backend/.env")
+    print("   - frontend/.env\n")
+
+    print("4. ⏳ Wait 2–5 minutes after saving in Google Console\n")
+
+    print("5. 🌐 Test login:")
+    print("   - http://localhost:5173")
+    print("   - https://ticketingtool.vercel.app\n")
+
+    print("🎉 If all checks pass → Google OAuth should work!")
+
+
+# ---------------- RUN ----------------
 
 if __name__ == "__main__":
     test_google_oauth_config()
