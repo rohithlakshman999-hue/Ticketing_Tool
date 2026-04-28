@@ -22,16 +22,24 @@ def on_startup():
         print("❌ Database connection failed:", str(e))
 
 
-# ------------------- CORS (VERY IMPORTANT FIX) -------------------
+# ------------------- CORS (FINAL FIX) -------------------
+
+origins = [
+    "http://localhost:5173",
+    "http://127.0.0.1:5173",
+
+    # ✅ PRODUCTION (MAIN DOMAIN)
+    "https://ticketingtool.vercel.app",
+
+    # ✅ VERCEL PREVIEW URLS (IMPORTANT)
+    "https://ticketingtool-git-main-g-rohith-lakshman-s-projects.vercel.app",
+    "https://ticketingtool-45h1yjite-g-rohith-lakshman-s-projects.vercel.app",
+]
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=[
-        "http://localhost:5173",
-        "http://127.0.0.1:5173",
-        "https://ticketingtool.vercel.app",   # ✅ your frontend
-    ],
-    allow_credentials=True,   # ✅ IMPORTANT
+    allow_origins=origins,
+    allow_credentials=True,   # ✅ REQUIRED for auth
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -62,5 +70,6 @@ async def websocket_endpoint(websocket: WebSocket):
             await websocket.receive_text()
     except WebSocketDisconnect:
         manager.disconnect(websocket)
-    except Exception:
+    except Exception as e:
+        print("WebSocket error:", str(e))
         manager.disconnect(websocket)
