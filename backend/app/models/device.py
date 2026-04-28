@@ -1,32 +1,38 @@
-from sqlalchemy import Column, Integer, String, DateTime
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
 from datetime import datetime
 from sqlalchemy.orm import relationship
-
 from ..core.database import Base
 
 
-class Company(Base):
-    __tablename__ = "companies"
+class DeviceType(Base):
+    __tablename__ = "device_types"
 
     id = Column(Integer, primary_key=True, index=True)
+    name = Column(String, unique=True, nullable=False)
+    description = Column(String, nullable=True)
 
-    # Unique company name
-    name = Column(String, unique=True, index=True, nullable=False)
+    devices = relationship("Device", back_populates="device_type")
+
+
+class Device(Base):
+    __tablename__ = "devices"
+
+    id = Column(Integer, primary_key=True, index=True)
+    product_name = Column(String, nullable=False)
+    model_number = Column(String, nullable=False)
+    serial_number = Column(String, nullable=False)
+    description = Column(String, nullable=True)
+
+    customer_id = Column(Integer, ForeignKey("users.id"))
+    company_id = Column(Integer, ForeignKey("companies.id"))
 
     created_at = Column(DateTime, default=datetime.utcnow)
 
-    # ------------------- RELATIONSHIPS -------------------
+    # Relationships
+    device_type_id = Column(Integer, ForeignKey("device_types.id"))
+    device_type = relationship("DeviceType", back_populates="devices")
 
-    # Users in this company
-    users = relationship(
-        "User",
-        back_populates="company",
-        cascade="all, delete-orphan"
-    )
+    company = relationship("Company")
+    customer = relationship("User")
 
-    # Tickets raised under this company
-    tickets = relationship(
-        "Ticket",
-        back_populates="company"
-        # ❌ Removed cascade here (important)
-    )
+    tickets = relationship("Ticket", back_populates="device")
