@@ -22,16 +22,17 @@ def on_startup():
         print("❌ Database connection failed:", str(e))
 
 
-# ------------------- CORS (FINAL FIX) -------------------
+# ------------------- CORS CONFIG (FINAL) -------------------
 
 origins = [
+    # Local development
     "http://localhost:5173",
     "http://127.0.0.1:5173",
 
-    # ✅ PRODUCTION (MAIN DOMAIN)
+    # Production (MAIN DOMAIN)
     "https://ticketingtool.vercel.app",
 
-    # ✅ VERCEL PREVIEW URLS (IMPORTANT)
+    # (Optional) Vercel preview URLs — only if you actually use them
     "https://ticketingtool-git-main-g-rohith-lakshman-s-projects.vercel.app",
     "https://ticketingtool-45h1yjite-g-rohith-lakshman-s-projects.vercel.app",
 ]
@@ -39,7 +40,7 @@ origins = [
 app.add_middleware(
     CORSMiddleware,
     allow_origins=origins,
-    allow_credentials=True,   # ✅ REQUIRED for auth
+    allow_credentials=True,   # ✅ required for JWT/auth
     allow_methods=["*"],
     allow_headers=["*"],
 )
@@ -58,6 +59,13 @@ app.include_router(devices.router, prefix="/devices", tags=["devices"])
 @app.get("/")
 def root():
     return {"message": "Welcome to the IT Service Ticketing API"}
+
+
+# ------------------- HEALTH CHECK (IMPORTANT) -------------------
+
+@app.get("/health")
+def health():
+    return {"status": "ok"}
 
 
 # ------------------- WEBSOCKET -------------------

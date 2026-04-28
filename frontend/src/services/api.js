@@ -1,20 +1,28 @@
 import axios from 'axios';
 
 const api = axios.create({
-    baseURL: import.meta.env.VITE_API_URL, // ✅ FIX
-    withCredentials: true, // ✅ important for auth
+    baseURL: import.meta.env.VITE_API_URL,
+    timeout: 15000,
 });
 
-// Attach JWT token
-api.interceptors.request.use(
-    (config) => {
-        const token = localStorage.getItem('token');
-        if (token) {
-            config.headers.Authorization = `Bearer ${token}`;
+// Retry logic (handles Render cold start)
+api.interceptors.response.use(
+    (response) => response,
+    async (error) => {
+        const config = error.config;
+
+        if (!config || config.__retryCount >= 2) {
+            return Promise.reject(error);
         }
-        return config;
-    },
-    (error) => Promise.reject(error)
+
+        config.__retryCount = config.__retryCount || 0;
+        config.__retryCount += 1;
+
+        // Wait before retry (backend wake-up)
+        await new Promise(res => setTimeout(res, 3000));
+
+        return api(config);
+    }
 );
 
 export default api;
