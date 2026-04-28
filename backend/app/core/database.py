@@ -1,43 +1,40 @@
-import os
-from dotenv import load_dotenv
 from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
-load_dotenv()
+from .config import settings
 
-DATABASE_URL = os.getenv("DATABASE_URL")
+# ------------------- DATABASE URL -------------------
 
-if not DATABASE_URL:
-    raise ValueError("❌ DATABASE_URL is not set")
+DATABASE_URL = settings.get_database_url()
 
 # Fix for Render (postgres:// → postgresql://)
 if DATABASE_URL.startswith("postgres://"):
     DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
 
-# Detect PostgreSQL vs SQLite
+# Detect SQLite
 is_sqlite = DATABASE_URL.startswith("sqlite")
 
-# Engine configuration
+# ------------------- ENGINE -------------------
+
 engine = create_engine(
     DATABASE_URL,
-    connect_args={"check_same_thread": False} if is_sqlite else {"sslmode": "require"},
-    pool_pre_ping=True,   # prevents stale connections
-    pool_size=5,
-    max_overflow=10
+    connect_args={"check_same_thread": False} if is_sqlite else {},
+    pool_pre_ping=True,
 )
 
-# Session
+# ------------------- SESSION -------------------
+
 SessionLocal = sessionmaker(
     autocommit=False,
     autoflush=False,
     bind=engine
 )
 
-# Base model
+# ------------------- BASE -------------------
+
 Base = declarative_base()
 
-
-# ------------------- DB DEPENDENCY -------------------
+# ------------------- DEPENDENCY -------------------
 
 def get_db():
     db = SessionLocal()
