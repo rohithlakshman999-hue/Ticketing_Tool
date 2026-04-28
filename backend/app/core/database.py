@@ -3,7 +3,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker, declarative_base
 
 # Get database URL from environment (Render)
-DATABASE_URL = os.getenv("DATABASE_URL")
+DATABASE_URL = os.getenv("postgresql://ticketing_db_e3kf_user:5VNPM9XdS2lvFNwjCGQ6UDNTJENNpCBp@dpg-d7o9ugreo5us739p242g-a.oregon-postgres.render.com/ticketing_db_e3kf")
 
 # Fix for PostgreSQL URL (Render sometimes gives postgres:// instead of postgresql://)
 if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
