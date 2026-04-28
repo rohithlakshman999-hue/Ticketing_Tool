@@ -5,10 +5,10 @@ export function useWebSockets() {
   const ws = useRef(null);
 
   useEffect(() => {
-    // ✅ Use ENV variable (same as API)
-    const WS_URL = import.meta.env.VITE_API_URL.replace("https", "wss");
+    // ✅ Use dedicated WS env variable - works for both local (ws://) and production (wss://)
+    const WS_URL = import.meta.env.VITE_WS_URL || import.meta.env.VITE_API_URL.replace('https://', 'wss://').replace('http://', 'ws://');
 
-    ws.current = new WebSocket(`${WS_URL}/ws`);
+    ws.current = new WebSocket(WS_URL);
 
     ws.current.onopen = () => {
       console.log('✅ WebSocket Connected');
