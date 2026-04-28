@@ -1,23 +1,24 @@
 import os
 from sqlalchemy import create_engine
-from sqlalchemy.ext.declarative import declarative_base
-from sqlalchemy.orm import sessionmaker
-from .config import settings
+from sqlalchemy.orm import sessionmaker, declarative_base
 
-# Graceful fallback for local development if PostgreSQL is not running
-try:
-    engine = create_engine(settings.SQLALCHEMY_DATABASE_URI)
-    # Test connection
-    with engine.connect() as conn:
-        pass
-    print("Successfully connected to PostgreSQL")
-except Exception as e:
-    print(f"WARNING: PostgreSQL not available ({e}). Falling back to SQLite.")
-    engine = create_engine("sqlite:///./ticketing_v4.db", connect_args={"check_same_thread": False})
+# Get database URL from environment (Render)
+DATABASE_URL = os.getenv("DATABASE_URL")
 
+# Fix for PostgreSQL URL (Render sometimes gives postgres:// instead of postgresql://)
+if DATABASE_URL and DATABASE_URL.startswith("postgres://"):
+    DATABASE_URL = DATABASE_URL.replace("postgres://", "postgresql://", 1)
+
+# Create engine
+engine = create_engine(DATABASE_URL)
+
+# Session
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
+
+# Base
 Base = declarative_base()
 
+# Dependency
 def get_db():
     db = SessionLocal()
     try:
