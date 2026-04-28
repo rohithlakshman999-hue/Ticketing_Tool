@@ -5,7 +5,13 @@ from app.api import auth, tickets, ai, devices
 from app.core.websockets import manager
 
 # Create tables
-Base.metadata.create_all(bind=engine)
+@app.on_event("startup")
+def on_startup():
+    try:
+        Base.metadata.create_all(bind=engine)
+        print("✅ Database connected and tables created")
+    except Exception as e:
+        print("❌ Database connection failed:", e)
 
 app = FastAPI(title="IT Service Ticketing API")
 
