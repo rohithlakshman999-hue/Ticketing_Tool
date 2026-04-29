@@ -13,7 +13,7 @@ router = APIRouter()
 
 # Get API keys
 OPENAI_API_KEY = os.getenv("OPENAI_API_KEY")
-GEMINI_API_KEY = os.getenv("AIzaSyAqzgjNeLZ6gCektZkcyuZCGY3X4dzQIOs")
+GEMINI_API_KEY = os.getenv("GEMINI_API_KEY")
 
 provider = "mock"
 client = None

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../context/AuthContext';
-import { Ticket, Eye, EyeOff } from 'lucide-react';
+import { Ticket, Eye, EyeOff, Loader2 } from 'lucide-react';
 import { GoogleLogin } from '@react-oauth/google';
 
 function Login() {
@@ -10,6 +10,7 @@ function Login() {
   const [companyName, setCompanyName] = useState('');
   const [isRegister, setIsRegister] = useState(false);
   const [error, setError] = useState('');
+  const [isLoading, setIsLoading] = useState(false);
   const [showPassword, setShowPassword] = useState(false);
   
   const { login, register, googleLogin } = useAuth();
@@ -18,6 +19,7 @@ function Login() {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setIsLoading(true);
     
     try {
       if (isRegister) {
@@ -34,14 +36,22 @@ function Login() {
       }
       navigate('/dashboard');
     } catch (err) {
-      const detail = err.response?.data?.detail;
-      if (Array.isArray(detail)) {
-        setError(detail.map(d => d.msg).join(', '));
+      // Distinguish between network errors (Render cold start) and auth errors
+      if (!err.response) {
+        setError('⏳ Server is starting up, please wait a moment and try again. (This can take up to 30 seconds on first load)');
       } else {
-        setError(detail || 'An error occurred');
+        const detail = err.response?.data?.detail;
+        if (Array.isArray(detail)) {
+          setError(detail.map(d => d.msg).join(', '));
+        } else {
+          setError(detail || 'An error occurred. Please try again.');
+        }
       }
+    } finally {
+      setIsLoading(false);
     }
   };
+
 
   return (
     <div className="min-h-[85vh] flex items-center justify-center py-12 px-4 sm:px-6 lg:px-8">
@@ -110,9 +120,17 @@ function Login() {
 
             <button 
               type="submit" 
-              className="w-full flex justify-center py-2.5 px-4 rounded-lg font-medium glass-button text-sm"
+              disabled={isLoading}
+              className="w-full flex justify-center items-center gap-2 py-2.5 px-4 rounded-lg font-medium glass-button text-sm disabled:opacity-60 disabled:cursor-not-allowed"
             >
-              {isRegister ? 'Sign Up' : 'Sign In'}
+              {isLoading ? (
+                <>
+                  <Loader2 size={16} className="animate-spin" />
+                  {isRegister ? 'Creating Account...' : 'Signing In...'}
+                </>
+              ) : (
+                isRegister ? 'Sign Up' : 'Sign In'
+              )}
             </button>
           </form>
             

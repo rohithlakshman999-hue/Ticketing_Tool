@@ -49,13 +49,13 @@ class Ticket(Base):
     customer = relationship(
         "User",
         foreign_keys=[customer_id],
-        backref="tickets_created"
+        back_populates="tickets_created"
     )
 
     assigned_technician = relationship(
         "User",
         foreign_keys=[assigned_technician_id],
-        backref="tickets_assigned"
+        back_populates="tickets_assigned"
     )
 
     company = relationship(
