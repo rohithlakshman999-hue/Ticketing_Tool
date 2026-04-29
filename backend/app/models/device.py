@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, String, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, String, DateTime, ForeignKey, Boolean
 from datetime import datetime
 from sqlalchemy.orm import relationship
 from ..core.database import Base
@@ -22,6 +22,12 @@ class Device(Base):
     model_number = Column(String, nullable=False)
     serial_number = Column(String, nullable=False)
     description = Column(String, nullable=True)
+
+    # Missing warranty fields
+    purchase_date = Column(DateTime, nullable=True)
+    warranty_available = Column(Boolean, default=False)
+    warranty_duration = Column(String, nullable=True)
+    warranty_expiry_date = Column(DateTime, nullable=True)
 
     customer_id = Column(Integer, ForeignKey("users.id"))
     company_id = Column(Integer, ForeignKey("companies.id"))
