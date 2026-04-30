@@ -18,6 +18,7 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
   const [deleteConfirm, setDeleteConfirm] = useState(null); // ticket to delete
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [filter, setFilter] = useState('all'); // 'all', 'open', 'closed'
 
   useEffect(() => {
     api.get('/auth/engineers')
@@ -54,8 +55,14 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
 
   // Calculate KPIs
   const totalOpen = tickets.filter(t => t.status === 'open').length;
-  const highPriority = tickets.filter(t => t.priority === 'high').length;
+  const totalClosed = tickets.filter(t => t.status === 'closed' || t.status === 'resolved').length;
   const urgentTickets = tickets.filter(t => t.priority === 'high' || t.status === 'open');
+
+  const filteredTickets = tickets.filter(t => {
+    if (filter === 'open') return t.status === 'open';
+    if (filter === 'closed') return t.status === 'closed' || t.status === 'resolved';
+    return true; // 'all'
+  });
 
   const statusData = [
     { name: 'Open', value: tickets.filter(t => t.status === 'open').length },
@@ -135,19 +142,31 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
 
       {/* KPI Cards */}
       <div className="grid grid-cols-1 md:grid-cols-4 gap-6">
-        <div className="glass-card p-6 flex flex-col items-center justify-center">
+        <div 
+          onClick={() => setFilter('open')}
+          className={`glass-card p-6 flex flex-col items-center justify-center cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-blue-500/20 ${filter === 'open' ? 'ring-2 ring-blue-500 bg-white/10' : ''}`}
+        >
           <h3 className="text-slate-300 text-sm font-medium uppercase tracking-wider mb-2">Total Open</h3>
           <span className="text-4xl font-bold text-blue-400">{totalOpen}</span>
         </div>
-        <div className="glass-card p-6 flex flex-col items-center justify-center">
-          <h3 className="text-slate-300 text-sm font-medium uppercase tracking-wider mb-2">High Priority</h3>
-          <span className="text-4xl font-bold text-red-400">{highPriority}</span>
+        <div 
+          onClick={() => setFilter('closed')}
+          className={`glass-card p-6 flex flex-col items-center justify-center cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-red-500/20 ${filter === 'closed' ? 'ring-2 ring-red-500 bg-white/10' : ''}`}
+        >
+          <h3 className="text-slate-300 text-sm font-medium uppercase tracking-wider mb-2">Closed Tickets</h3>
+          <span className="text-4xl font-bold text-red-400">{totalClosed}</span>
         </div>
-        <div className="glass-card p-6 flex flex-col items-center justify-center">
+        <div 
+          onClick={() => setFilter('all')}
+          className={`glass-card p-6 flex flex-col items-center justify-center cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-white/20 ${filter === 'all' ? 'ring-2 ring-white/50 bg-white/10' : ''}`}
+        >
           <h3 className="text-slate-300 text-sm font-medium uppercase tracking-wider mb-2">Total Tickets</h3>
           <span className="text-4xl font-bold text-white">{tickets.length}</span>
         </div>
-        <div className="glass-card p-6 flex flex-col items-center justify-center">
+        <div 
+          onClick={() => navigate('/devices')}
+          className="glass-card p-6 flex flex-col items-center justify-center cursor-pointer transition-all hover:-translate-y-1 hover:shadow-lg hover:shadow-green-500/20"
+        >
           <h3 className="text-slate-300 text-sm font-medium uppercase tracking-wider mb-2">Total Devices</h3>
           <span className="text-4xl font-bold text-green-400">{devices.length}</span>
         </div>
@@ -162,7 +181,7 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
           </h3>
         </div>
         <div className="divide-y divide-white/5 max-h-[600px] overflow-y-auto custom-scrollbar">
-          {tickets.map(ticket => (
+          {filteredTickets.map(ticket => (
             <div key={ticket.id} className="p-4 hover:bg-white/5 transition-colors">
               {/* Top row: title + status + delete */}
               <div className="flex items-start justify-between gap-3 mb-3">
@@ -234,8 +253,8 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
               </div>
             </div>
           ))}
-          {tickets.length === 0 && (
-            <div className="p-8 text-center text-slate-400">No tickets available.</div>
+          {filteredTickets.length === 0 && (
+            <div className="p-8 text-center text-slate-400">No tickets found for this filter.</div>
           )}
         </div>
       </div>
