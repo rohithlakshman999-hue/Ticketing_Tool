@@ -18,9 +18,25 @@ app = FastAPI(title="IT Service Ticketing API")
 def on_startup():
     try:
         Base.metadata.create_all(bind=engine)
-        print("[SUCCESS] Database connected and tables created")
+        
+        # ✅ Auto-Migration for existing DBs
+        import sqlite3
+        conn = sqlite3.connect("backend/ticketing_v4.db")
+        cursor = conn.cursor()
+        cursor.execute("PRAGMA table_info(tickets)")
+        cols = [c[1] for c in cursor.fetchall()]
+        
+        if "contact_name" not in cols:
+            cursor.execute("ALTER TABLE tickets ADD COLUMN contact_name TEXT")
+        if "created_by_id" not in cols:
+            cursor.execute("ALTER TABLE tickets ADD COLUMN created_by_id INTEGER")
+            
+        conn.commit()
+        conn.close()
+        
+        print("[SUCCESS] Database connected and tables/columns checked")
     except Exception as e:
-        print("[ERROR] Database connection failed:", str(e))
+        print("[ERROR] Database connection/migration failed:", str(e))
 
 
 # ------------------- CORS CONFIG (FINAL) -------------------
@@ -44,8 +60,8 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=origins,
-    allow_credentials=True,   # ✅ required for JWT/auth
+    allow_origins=["*"], # ✅ Temporary fix for CORS issues in production
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
