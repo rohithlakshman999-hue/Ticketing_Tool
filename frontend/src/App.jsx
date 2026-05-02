@@ -40,12 +40,10 @@ function ProtectedRoute({ children, role }) {
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
-  const location = window.location;
-  const isAddAccount = new URLSearchParams(location.search).get('add_account') === 'true';
 
   if (loading) return null;
 
-  if (user && !isAddAccount) {
+  if (user) {
     return <Navigate to="/dashboard" replace />;
   }
 
