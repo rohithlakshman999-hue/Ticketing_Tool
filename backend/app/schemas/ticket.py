@@ -11,6 +11,7 @@ class TicketBase(BaseModel):
     description: str
     device_type: str
     category: str
+    contact_name: Optional[str] = None
     priority: TicketPriority = TicketPriority.low
 
 
@@ -119,6 +120,7 @@ class TicketResponse(TicketBase):
 
     customer_id: int
     customer_name: Optional[str] = None
+    creator_name: Optional[str] = None
 
     assigned_technician_id: Optional[int] = None
     assigned_technician_name: Optional[str] = None

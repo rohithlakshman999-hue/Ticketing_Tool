@@ -227,6 +227,7 @@ export default function WorkTrackingDashboard() {
                   <tr>
                     <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Ticket</th>
                     <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Customer</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Created By</th>
                     <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Engineer Management</th>
                     <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Status Control</th>
                     <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Priority</th>
@@ -257,8 +258,12 @@ export default function WorkTrackingDashboard() {
                         </Link>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <div className="text-sm font-medium text-white">{ticket.customer_name}</div>
+                        <div className="text-sm font-medium text-white">{ticket.contact_name || ticket.customer_name}</div>
                         <div className="text-xs text-slate-400">{ticket.company_name || 'Individual'}</div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <div className="text-sm font-medium text-blue-300">{ticket.creator_name}</div>
+                        <div className="text-[10px] text-slate-500 uppercase tracking-tighter">Ticket Creator</div>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <select

@@ -16,6 +16,7 @@ export default function Dashboard() {
   const [showForm, setShowForm] = useState(false);
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
+  const [contactName, setContactName] = useState(''); // ✅ Added
   const [deviceType, setDeviceType] = useState('Laptop');
   const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [category, setCategory] = useState('Hardware');
@@ -112,6 +113,7 @@ export default function Dashboard() {
       const payload = {
         title: newTitle,
         description: newDesc,
+        contact_name: contactName, // ✅ Send contact name
         device_type: deviceType,
         device_id: finalDeviceId ? parseInt(finalDeviceId) : undefined,
         category: category,
@@ -136,6 +138,7 @@ export default function Dashboard() {
       setShowForm(false);
       setNewTitle('');
       setNewDesc('');
+      setContactName(''); // ✅ Reset
       setCustomerEmail('');
       setSelectedCompanyId('');
       setIsNewCompany(false);
@@ -248,15 +251,28 @@ export default function Dashboard() {
                 </div>
               )}
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Subject</label>
-                <input 
-                  type="text" 
-                  className="w-full px-3 py-2 glass-input sm:text-sm" 
-                  value={newTitle} 
-                  onChange={e => setNewTitle(e.target.value)} 
-                  required 
-                />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Subject *</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-3 py-2 glass-input sm:text-sm" 
+                    value={newTitle} 
+                    onChange={e => setNewTitle(e.target.value)} 
+                    required 
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Customer Name *</label>
+                  <input 
+                    type="text" 
+                    className="w-full px-3 py-2 glass-input sm:text-sm" 
+                    value={contactName} 
+                    onChange={e => setContactName(e.target.value)} 
+                    placeholder="e.g. John Doe"
+                    required 
+                  />
+                </div>
               </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">

@@ -94,7 +94,9 @@ async def create_ticket(
         device_type=ticket_in.device_type,
         category=inferred_category,
         priority=inferred_priority,
+        contact_name=ticket_in.contact_name,
         customer_id=target_customer_id,
+        created_by_id=current_user.id, # ✅ Set who created it
         assigned_technician_id=assigned_tech_id,
         company_id=target_company_id,
         device_id=ticket_in.device_id
@@ -197,8 +199,10 @@ def get_all_tracking(
             "priority": t.priority,
             "category": t.category,
             "device_type": t.device_type,
+            "contact_name": t.contact_name,
             "company_name": t.company.name if t.company else None,
             "customer_name": customer.full_name or customer.email if customer else "Unknown",
+            "creator_name": t.creator_name, # ✅ Uses property from model
             "engineer_name": engineer.full_name or engineer.email if engineer else None,
             "engineer_id": t.assigned_technician_id,
             "created_at": t.created_at.isoformat(),

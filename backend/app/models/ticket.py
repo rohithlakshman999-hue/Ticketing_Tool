@@ -32,6 +32,7 @@ class Ticket(Base):
 
     device_type = Column(String)
     category = Column(String)
+    contact_name = Column(String) # ✅ Manually entered customer name
 
     status = Column(Enum(TicketStatus), default=TicketStatus.open)
     priority = Column(Enum(TicketPriority), default=TicketPriority.low)
@@ -40,6 +41,7 @@ class Ticket(Base):
     assigned_technician_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True, index=True)
     device_id = Column(Integer, ForeignKey("devices.id"), nullable=True, index=True)
+    created_by_id = Column(Integer, ForeignKey("users.id"), nullable=True, index=True)
 
     created_at = Column(DateTime, default=datetime.utcnow)
     updated_at = Column(DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -50,6 +52,11 @@ class Ticket(Base):
         "User",
         foreign_keys=[customer_id],
         back_populates="tickets_created"
+    )
+
+    creator = relationship(
+        "User",
+        foreign_keys=[created_by_id]
     )
 
     assigned_technician = relationship(
@@ -95,6 +102,10 @@ class Ticket(Base):
     @property
     def customer_name(self):
         return self.customer.full_name or self.customer.email if self.customer else "Unknown"
+
+    @property
+    def creator_name(self):
+        return self.creator.full_name or self.creator.email if self.creator else self.customer_name
 
     @property
     def customer_email(self):
