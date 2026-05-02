@@ -17,26 +17,26 @@ app = FastAPI(title="IT Service Ticketing API")
 @app.on_event("startup")
 def on_startup():
     try:
+        # 1. Create tables if they don't exist
         Base.metadata.create_all(bind=engine)
         
-        # ✅ Auto-Migration for existing DBs
-        import sqlite3
-        conn = sqlite3.connect("backend/ticketing_v4.db")
-        cursor = conn.cursor()
-        cursor.execute("PRAGMA table_info(tickets)")
-        cols = [c[1] for c in cursor.fetchall()]
+        # 2. Auto-Migrate columns using SQLAlchemy (Works for SQLite and Postgres)
+        from sqlalchemy import text, inspect
+        inspector = inspect(engine)
+        columns = [c['name'] for c in inspector.get_columns('tickets')]
         
-        if "contact_name" not in cols:
-            cursor.execute("ALTER TABLE tickets ADD COLUMN contact_name TEXT")
-        if "created_by_id" not in cols:
-            cursor.execute("ALTER TABLE tickets ADD COLUMN created_by_id INTEGER")
+        with engine.begin() as conn:
+            if "contact_name" not in columns:
+                print("Adding contact_name column...")
+                conn.execute(text("ALTER TABLE tickets ADD COLUMN contact_name TEXT"))
+            if "created_by_id" not in columns:
+                print("Adding created_by_id column...")
+                # SQLite and Postgres handle integer types slightly differently but TEXT/INTEGER is safe
+                conn.execute(text("ALTER TABLE tickets ADD COLUMN created_by_id INTEGER"))
             
-        conn.commit()
-        conn.close()
-        
-        print("[SUCCESS] Database connected and tables/columns checked")
+        print("[SUCCESS] Database connected and columns verified")
     except Exception as e:
-        print("[ERROR] Database connection/migration failed:", str(e))
+        print("[ERROR] Database startup/migration failed:", str(e))
 
 
 # ------------------- CORS CONFIG (FINAL) -------------------
