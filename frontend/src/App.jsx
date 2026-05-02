@@ -19,18 +19,13 @@ import { AuthProvider, useAuth } from './context/AuthContext';
 
 function ProtectedRoute({ children, role }) {
   const { user, loading } = useAuth();
-  const token = localStorage.getItem('token');
 
   if (loading) {
     return <div className="text-center mt-10 text-slate-400">Loading...</div>;
   }
 
-  if (!token) {
-    return <Navigate to="/login" replace />;
-  }
-
   if (!user) {
-    return <div className="text-center mt-10 text-slate-400">Loading profile...</div>;
+    return <Navigate to="/login" replace />;
   }
 
   if (role && user.role !== role && user.role !== 'admin') {
@@ -45,11 +40,12 @@ function ProtectedRoute({ children, role }) {
 
 function PublicRoute({ children }) {
   const { user, loading } = useAuth();
-  const token = localStorage.getItem('token');
+  const location = window.location;
+  const isAddAccount = new URLSearchParams(location.search).get('add_account') === 'true';
 
   if (loading) return null;
 
-  if (user || token) {
+  if (user && !isAddAccount) {
     return <Navigate to="/dashboard" replace />;
   }
 
