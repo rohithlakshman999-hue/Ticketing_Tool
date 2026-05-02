@@ -92,6 +92,20 @@ class Ticket(Base):
     def company_name(self):
         return self.company.name if self.company else None
 
+    @property
+    def customer_name(self):
+        return self.customer.full_name or self.customer.email if self.customer else "Unknown"
+
+    @property
+    def customer_email(self):
+        return self.customer.email if self.customer else None
+
+    @property
+    def assigned_technician_name(self):
+        if self.assigned_technician:
+            return self.assigned_technician.full_name or self.assigned_technician.email
+        return "Unassigned"
+
 
 # ------------------- COMMENTS -------------------
 

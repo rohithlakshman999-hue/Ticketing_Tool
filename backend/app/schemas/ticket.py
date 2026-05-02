@@ -19,7 +19,9 @@ class TicketBase(BaseModel):
 class TicketCreate(TicketBase):
     customer_email: Optional[str] = None
     company_name: Optional[str] = None
+    company_id: Optional[int] = None
     device_id: Optional[int] = None
+    assigned_technician_id: Optional[int] = None
 
 
 class TicketUpdate(BaseModel):

@@ -58,8 +58,8 @@ async def create_ticket(
     if current_user.role in [UserRole.admin, UserRole.staff] and ticket_in.customer_email:
         customer = db.query(User).filter(User.email == ticket_in.customer_email).first()
         if not customer:
-            company_id = None
-            if ticket_in.company_name:
+            company_id = ticket_in.company_id
+            if not company_id and ticket_in.company_name:
                 company = db.query(Company).filter(Company.name == ticket_in.company_name).first()
                 if not company:
                     company = Company(name=ticket_in.company_name)
@@ -85,17 +85,8 @@ async def create_ticket(
     inferred_category = ai_result.get("category", ticket_in.category)
     inferred_priority = ai_result.get("priority", ticket_in.priority)
 
-    # Auto-assign to staff member with fewest open tickets
-    staff_members = db.query(User).filter(User.role == UserRole.staff).all()
-    assigned_tech_id = None
-    if staff_members:
-        assigned_tech_id = min(
-            staff_members,
-            key=lambda s: db.query(Ticket).filter(
-                Ticket.assigned_technician_id == s.id,
-                Ticket.status.in_([TicketStatus.open, TicketStatus.in_progress])
-            ).count()
-        ).id
+    # Manual assignment if provided (for admins)
+    assigned_tech_id = ticket_in.assigned_technician_id
 
     new_ticket = Ticket(
         title=ticket_in.title,
@@ -133,14 +124,21 @@ def get_tickets(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
+    from sqlalchemy.orm import selectinload
+    query = db.query(Ticket).options(
+        selectinload(Ticket.comments),
+        selectinload(Ticket.history),
+        selectinload(Ticket.device)
+    )
+
     if current_user.role == UserRole.admin:
-        tickets = db.query(Ticket).order_by(Ticket.updated_at.desc()).offset(skip).limit(limit).all()
+        tickets = query.order_by(Ticket.updated_at.desc()).offset(skip).limit(limit).all()
     elif current_user.role == UserRole.staff:
-        tickets = db.query(Ticket).filter(
+        tickets = query.filter(
             Ticket.assigned_technician_id == current_user.id
         ).order_by(Ticket.updated_at.desc()).offset(skip).limit(limit).all()
     else:
-        tickets = db.query(Ticket).filter(
+        tickets = query.filter(
             Ticket.customer_id == current_user.id
         ).order_by(Ticket.updated_at.desc()).offset(skip).limit(limit).all()
     return tickets
@@ -157,17 +155,28 @@ def get_all_tracking(
     current_user: User = Depends(get_current_active_user)
 ):
     """Admin-only: returns all tickets with their latest activity for tracking board."""
-    if current_user.role != UserRole.admin:
-        raise HTTPException(status_code=403, detail="Admin only")
-
-    query = db.query(Ticket)
+    if current_user.role not in [UserRole.admin, UserRole.staff]:
+        raise HTTPException(status_code=403, detail="Forbidden")
+    
+    from sqlalchemy.orm import selectinload
+    query = db.query(Ticket).options(
+        selectinload(Ticket.comments),
+        selectinload(Ticket.history),
+        selectinload(Ticket.device)
+    )
     if status:
         try:
             query = query.filter(Ticket.status == TicketStatus(status))
         except ValueError:
             pass
-    if engineer_id:
+            
+    # Filter for staff: only show their own tickets
+    if current_user.role == UserRole.staff:
+        query = query.filter(Ticket.assigned_technician_id == current_user.id)
+    # Admin can filter by engineer_id explicitly
+    elif engineer_id:
         query = query.filter(Ticket.assigned_technician_id == engineer_id)
+
     if priority:
         query = query.filter(Ticket.priority == priority)
 
@@ -277,12 +286,16 @@ async def assign_engineer(
         if prev:
             old_assignee = prev.full_name or prev.email
 
+    if ticket.assigned_technician_id == assign_in.engineer_id:
+        return ticket # No change, avoid duplicate logging
+
     ticket.assigned_technician_id = assign_in.engineer_id
     ticket.status = TicketStatus.in_progress
     ticket.updated_at = datetime.utcnow()
+    
     _log_history(db, ticket.id, "assigned",
                  old_assignee, engineer.full_name or engineer.email, current_user.id)
-    _log_activity(db, ticket.id, current_user.id, "assigned", f"Assigned to {engineer.full_name or engineer.email}")
+    # Only use history for assignment logs to avoid duplication in Activity feed
     db.commit()
     db.refresh(ticket)
     await manager.broadcast({"type": "ticket_updated", "ticket_id": ticket.id})
@@ -309,6 +322,9 @@ async def update_status(
         raise HTTPException(status_code=403, detail="You can only update your own assigned tickets")
 
     old_status = ticket.status.value if hasattr(ticket.status, 'value') else str(ticket.status)
+    if old_status == status_in.status.value:
+        return ticket # No change
+
     ticket.status = status_in.status
     ticket.updated_at = datetime.utcnow()
     _log_history(db, ticket.id, "status_update", old_status, status_in.status.value, current_user.id)

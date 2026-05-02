@@ -1,8 +1,8 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, Link } from 'react-router-dom';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Clock, User, CheckCircle, AlertCircle, ArrowRight } from 'lucide-react';
+import { Clock, User, CheckCircle, AlertCircle, ArrowRight, X, RotateCcw } from 'lucide-react';
 import { formatDateTime } from '../utils/date';
 
 const statusBadge = {
@@ -24,6 +24,14 @@ export default function WorkTrackingDashboard() {
   const [priorityFilter, setPriorityFilter] = useState('');
   const [loading, setLoading] = useState(true);
   const [ticketLoading, setTicketLoading] = useState(false);
+  const [assigningId, setAssigningId] = useState({});
+  const [updatingStatus, setUpdatingStatus] = useState({});
+  const [actionSuccess, setActionSuccess] = useState('');
+  const [actionError, setActionError] = useState('');
+  const [activeUpdateTicket, setActiveUpdateTicket] = useState(null);
+  const [newStatus, setNewStatus] = useState('');
+  const [progressNote, setProgressNote] = useState('');
+  const [submittingUpdate, setSubmittingUpdate] = useState(false);
 
   const fetchTickets = async () => {
     setLoading(true);
@@ -52,11 +60,26 @@ export default function WorkTrackingDashboard() {
     }
   };
 
-  const fetchActivity = async (ticket) => {
+  const fetchTimeline = async (ticket) => {
     setTicketLoading(true);
     try {
-      const res = await api.get(`/tickets/${ticket.id}/activity`);
-      setActivity(res.data);
+      const [activityRes, ticketRes] = await Promise.all([
+        api.get(`/tickets/${ticket.id}/activity`),
+        api.get(`/tickets/${ticket.id}`)
+      ]);
+      
+      const combined = [
+        ...activityRes.data.map(a => ({ ...a, _type: 'activity' })),
+        ...ticketRes.data.history.map(h => ({ 
+          ...h, 
+          _type: 'history', 
+          message: `${h.action.replace('_', ' ')}: "${h.old_value || 'none'}" → "${h.new_value || 'none'}"`,
+          created_at: h.timestamp,
+          engineer_name: h.changed_by_name || 'System'
+        }))
+      ].sort((a, b) => new Date(a.created_at) - new Date(b.created_at));
+
+      setActivity(combined);
       setSelectedTicket(ticket);
     } catch (e) {
       console.error(e);
@@ -67,27 +90,62 @@ export default function WorkTrackingDashboard() {
     }
   };
 
+  const handleAssign = async (ticketId, engineerId) => {
+    if (!engineerId) return;
+    setActionError(''); setActionSuccess('');
+    try {
+      await api.put(`/tickets/${ticketId}/assign`, { engineer_id: parseInt(engineerId) });
+      setActionSuccess(`Ticket #${ticketId} assigned successfully`);
+      fetchTickets();
+    } catch (e) {
+      setActionError('Failed to assign engineer');
+    }
+  };
+
+  const handleStatusUpdate = async (ticketId, newStatus) => {
+    if (!newStatus) return;
+    setActionError(''); setActionSuccess('');
+    try {
+      await api.put(`/tickets/${ticketId}/status`, { status: newStatus, note: 'Status updated via tracking board' });
+      setActionSuccess(`Ticket #${ticketId} status updated to ${newStatus}`);
+      fetchTickets();
+    } catch (e) {
+      setActionError('Failed to update status');
+    }
+  };
+
+  const handleStatusUpdateWithNote = async () => {
+    if (!activeUpdateTicket || !newStatus) return;
+    setActionError(''); setActionSuccess('');
+    try {
+      setSubmittingUpdate(true);
+      await api.put(`/tickets/${activeUpdateTicket.id}/status`, { 
+        status: newStatus, 
+        note: progressNote || `Status changed to ${newStatus}` 
+      });
+      setActionSuccess(`Ticket #${activeUpdateTicket.id} updated successfully`);
+      setActiveUpdateTicket(null);
+      setProgressNote('');
+      fetchTickets();
+    } catch (e) {
+      setActionError('Failed to update ticket');
+    } finally {
+      setSubmittingUpdate(false);
+    }
+  };
+
   useEffect(() => {
-    if (user?.role !== 'admin') return;
+    if (user?.role !== 'admin' && user?.role !== 'staff') return;
     fetchTickets();
-    fetchEngineers();
+    if (user?.role === 'admin') fetchEngineers();
   }, [user, statusFilter, engineerFilter, priorityFilter]);
 
-  const delayedThreshold = useMemo(() => 1000 * 60 * 60 * 24 * 2, []);
+  const ticketRows = tickets;
 
-  const ticketRows = tickets.map((ticket) => {
-    const lastUpdate = ticket.latest_update?.created_at || ticket.updated_at;
-    const age = Date.now() - new Date(lastUpdate).getTime();
-    return {
-      ...ticket,
-      delayed: age > delayedThreshold
-    };
-  });
-
-  if (user?.role !== 'admin') {
+  if (user?.role !== 'admin' && user?.role !== 'staff') {
     return (
       <div className="rounded-lg bg-white border border-red-100 p-8 text-center text-red-700">
-        Admin access required to view the Work Tracking Dashboard.
+        Access restricted.
       </div>
     );
   }
@@ -108,6 +166,12 @@ export default function WorkTrackingDashboard() {
           </button>
         </div>
       </div>
+
+      {(actionSuccess || actionError) && (
+        <div className={`p-4 rounded-lg text-sm animate-fade-in shadow-lg border backdrop-blur-md ${actionSuccess ? 'bg-green-900/30 border-green-500/30 text-green-300' : 'bg-red-900/30 border-red-500/30 text-red-300'}`}>
+          {actionSuccess || actionError}
+        </div>
+      )}
 
       <div className="grid grid-cols-1 xl:grid-cols-[1.4fr_0.85fr] gap-6">
         <div className="space-y-6">
@@ -161,12 +225,13 @@ export default function WorkTrackingDashboard() {
               <table className="w-full table-glass">
                 <thead>
                   <tr>
-                    <th className="px-4 py-4 text-left text-xs uppercase">Ticket</th>
-                    <th className="px-4 py-4 text-left text-xs uppercase">Engineer</th>
-                    <th className="px-4 py-4 text-left text-xs uppercase">Status</th>
-                    <th className="px-4 py-4 text-left text-xs uppercase">Priority</th>
-                    <th className="px-4 py-4 text-left text-xs uppercase">Last update</th>
-                    <th className="px-4 py-4 text-left text-xs uppercase">Action</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Ticket</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Customer</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Engineer Management</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Status Control</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Priority</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Last update</th>
+                    <th className="px-4 py-4 text-left text-xs uppercase text-slate-400">Action</th>
                   </tr>
                 </thead>
                 <tbody>
@@ -179,31 +244,56 @@ export default function WorkTrackingDashboard() {
                       <td colSpan="6" className="px-4 py-10 text-center text-slate-400">No tickets match the selected filters.</td>
                     </tr>
                   ) : ticketRows.map((ticket) => (
-                    <tr key={ticket.id} className={ticket.delayed ? 'bg-red-900/20' : ''}>
-                      <td className="px-4 py-4 whitespace-nowrap max-w-[240px]">
-                        <div className="font-semibold text-white">#{ticket.id} {ticket.title}</div>
-                        <div className="text-xs text-slate-400 mt-1">Created {formatDateTime(ticket.created_at)}</div>
-                      </td>
-                      <td className="px-4 py-4 whitespace-nowrap text-slate-300">
-                        {ticket.engineer_name || 'Unassigned'}
+                    <tr key={ticket.id}>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <Link 
+                          to={`/tickets/${ticket.id}`} 
+                          className="block hover:translate-x-1 transition-transform group"
+                        >
+                          <div className="font-semibold text-white group-hover:text-blue-400 transition-colors flex items-center gap-2">
+                            #{ticket.id} {ticket.title}
+                          </div>
+                          <div className="text-xs text-slate-400 mt-1">Created {formatDateTime(ticket.created_at)}</div>
+                        </Link>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
-                        <span className={`inline-flex items-center gap-1.5 rounded-full border px-2 py-1 text-[10px] font-semibold uppercase tracking-wider ${statusBadge[ticket.status] || 'bg-slate-500/20 text-slate-300 border-slate-500/30'}`}>
-                          {ticket.status.replace('_', ' ')}
-                        </span>
+                        <div className="text-sm font-medium text-white">{ticket.customer_name}</div>
+                        <div className="text-xs text-slate-400">{ticket.company_name || 'Individual'}</div>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <select
+                          className="text-xs glass-input py-1 w-full max-w-[150px]"
+                          value={ticket.engineer_id || ''}
+                          onChange={(e) => handleAssign(ticket.id, e.target.value)}
+                        >
+                          <option value="" className="bg-slate-800 text-slate-200">-- Unassigned --</option>
+                          {engineers.map(eng => (
+                            <option key={eng.id} value={eng.id} className="bg-slate-800 text-slate-200">{eng.name}</option>
+                          ))}
+                        </select>
+                      </td>
+                      <td className="px-4 py-4 whitespace-nowrap">
+                        <select
+                          className={`text-xs glass-input py-1 font-semibold uppercase tracking-wider w-full max-w-[130px] border-none cursor-pointer ${statusBadge[ticket.status] || 'bg-slate-500/20 text-slate-300'}`}
+                          value={ticket.status}
+                          onChange={(e) => {
+                            setActiveUpdateTicket(ticket);
+                            setNewStatus(e.target.value);
+                          }}
+                        >
+                          <option value="open" className="bg-slate-800 text-slate-200">Open</option>
+                          <option value="in_progress" className="bg-slate-800 text-slate-200">In Progress</option>
+                          <option value="resolved" className="bg-slate-800 text-slate-200">Resolved</option>
+                          <option value="closed" className="bg-slate-800 text-slate-200">Closed</option>
+                        </select>
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap text-xs font-semibold text-slate-300 uppercase">{ticket.priority}</td>
                       <td className="px-4 py-4 whitespace-nowrap text-sm text-slate-400">
                         {formatDateTime(ticket.latest_update?.created_at || ticket.updated_at)}
-                        {ticket.delayed && (
-                          <div className="mt-1 inline-flex items-center gap-1 text-[10px] uppercase tracking-wider text-red-400 font-semibold bg-red-900/30 px-2 py-0.5 rounded border border-red-500/30">
-                            <AlertCircle size={10} /> Delayed
-                          </div>
-                        )}
                       </td>
                       <td className="px-4 py-4 whitespace-nowrap">
                         <button
-                          onClick={() => fetchActivity(ticket)}
+                          onClick={() => fetchTimeline(ticket)}
                           className="inline-flex items-center gap-2 rounded-md glass-button-secondary px-3 py-1.5 text-xs font-medium"
                         >
                           View progress
@@ -248,8 +338,12 @@ export default function WorkTrackingDashboard() {
                       <div className="flex justify-between gap-4">
                         <div>
                           <div className="flex items-center gap-2 text-sm font-semibold text-white">
-                            <span className={`inline-flex h-2.5 w-2.5 rounded-full shadow-[0_0_8px_currentColor] ${entry.status === 'open' ? 'text-blue-400 bg-blue-400' : entry.status === 'in_progress' ? 'text-yellow-400 bg-yellow-400' : entry.status === 'resolved' ? 'text-green-400 bg-green-400' : 'text-slate-400 bg-slate-400'}`} />
-                            {entry.status.replace('_', ' ')}
+                            {entry._type === 'history' ? (
+                              <RotateCcw size={14} className="text-indigo-400" />
+                            ) : (
+                              <span className={`inline-flex h-2.5 w-2.5 rounded-full shadow-[0_0_8px_currentColor] ${entry.status === 'open' ? 'text-blue-400 bg-blue-400' : entry.status === 'in_progress' ? 'text-yellow-400 bg-yellow-400' : entry.status === 'resolved' ? 'text-green-400 bg-green-400' : 'text-slate-400 bg-slate-400'}`} />
+                            )}
+                            {entry._type === 'history' ? 'System Log' : entry.status.replace('_', ' ')}
                           </div>
                           <div className="mt-1 text-sm text-slate-300">{entry.message}</div>
                         </div>
@@ -275,6 +369,49 @@ export default function WorkTrackingDashboard() {
           </div>
         </div>
       </div>
+      {/* Status Update Modal */}
+      {activeUpdateTicket && (
+        <div className="fixed inset-0 bg-black/60 backdrop-blur-sm flex items-center justify-center z-50 p-4">
+          <div className="glass-card w-full max-w-md overflow-hidden animate-fade-in-up">
+            <div className="p-6 glass-header flex justify-between items-center">
+              <h3 className="text-lg font-bold text-white">Update Ticket #{activeUpdateTicket.id}</h3>
+              <button onClick={() => setActiveUpdateTicket(null)} className="text-slate-400 hover:text-white"><X size={20} /></button>
+            </div>
+            <div className="p-6 space-y-4">
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Selected Status</label>
+                <div className={`inline-block px-3 py-1 rounded-full text-xs font-bold uppercase tracking-widest border ${statusBadge[newStatus]}`}>
+                  {newStatus.replace('_', ' ')}
+                </div>
+              </div>
+              <div>
+                <label className="block text-xs font-semibold text-slate-400 uppercase tracking-wider mb-2">Progress Note / Message</label>
+                <textarea
+                  className="w-full glass-input min-h-[120px] p-3 text-sm resize-none"
+                  placeholder="Describe the update, what was done, or next steps..."
+                  value={progressNote}
+                  onChange={e => setProgressNote(e.target.value)}
+                />
+              </div>
+              <div className="flex gap-3 pt-2">
+                <button
+                  onClick={() => setActiveUpdateTicket(null)}
+                  className="flex-1 px-4 py-2.5 glass-button-secondary rounded-lg text-sm font-medium"
+                >
+                  Cancel
+                </button>
+                <button
+                  onClick={handleStatusUpdateWithNote}
+                  disabled={submittingUpdate}
+                  className="flex-1 px-4 py-2.5 glass-button rounded-lg text-sm font-medium flex items-center justify-center gap-2"
+                >
+                  {submittingUpdate ? 'Updating...' : 'Confirm Update'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

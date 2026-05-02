@@ -33,6 +33,7 @@ class User(Base):
     company_id = Column(Integer, ForeignKey("companies.id"), nullable=True)
 
     designation = Column(String, nullable=True)
+    last_login = Column(String, nullable=True)
 
     # ------------------- RELATIONSHIPS -------------------
 

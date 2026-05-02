@@ -29,7 +29,6 @@ export default function Dashboard() {
   const [deviceTypeId, setDeviceTypeId] = useState('');
   const [deviceWarrantyAvailable, setDeviceWarrantyAvailable] = useState('no');
   const [deviceWarrantyDuration, setDeviceWarrantyDuration] = useState('');
-  const [devicePurchaseDate, setDevicePurchaseDate] = useState('');
   const [deviceWarrantyExpiryDate, setDeviceWarrantyExpiryDate] = useState('');
   
   // Devices state
@@ -41,6 +40,10 @@ export default function Dashboard() {
   const [companyName, setCompanyName] = useState('');
   const [assignEngineerId, setAssignEngineerId] = useState('');
   const [engineers, setEngineers] = useState([]);
+  const [companies, setCompanies] = useState([]);
+  const [selectedCompanyId, setSelectedCompanyId] = useState('');
+  const [isNewCompany, setIsNewCompany] = useState(false);
+  const [manualCompanyName, setManualCompanyName] = useState('');
 
   // Real-time hook
   const { lastMessage } = useWebSockets();
@@ -50,12 +53,14 @@ export default function Dashboard() {
       const requests = [
         api.get('/tickets/'),
         api.get('/devices/'),
-        api.get('/devices/types')
+        api.get('/devices/types'),
+        api.get('/companies/')
       ];
-      const [ticketsRes, devicesRes, typesRes] = await Promise.all(requests);
+      const [ticketsRes, devicesRes, typesRes, companiesRes] = await Promise.all(requests);
       setTickets(ticketsRes.data);
       setUserDevices(devicesRes.data);
       setDeviceTypes(typesRes.data);
+      setCompanies(companiesRes.data);
     } catch (e) {
       console.error(e);
     } finally {
@@ -96,10 +101,10 @@ export default function Dashboard() {
           serial_number: deviceSerial,
           description: deviceDescription,
           device_type_id: parseInt(deviceTypeId),
-          purchase_date: devicePurchaseDate || null,
+          purchase_date: null,
           warranty_available: deviceWarrantyAvailable === 'yes',
-          warranty_duration: deviceWarrantyAvailable === 'yes' ? deviceWarrantyDuration : null,
-          warranty_expiry_date: deviceWarrantyAvailable === 'yes' ? deviceWarrantyExpiryDate : null
+          warranty_duration: null,
+          warranty_expiry_date: null
         });
         finalDeviceId = deviceRes.data.id;
       }
@@ -115,7 +120,11 @@ export default function Dashboard() {
 
       if ((user.role === 'admin' || user.role === 'staff') && customerEmail) {
         payload.customer_email = customerEmail;
-        payload.company_name = companyName || undefined;
+        if (isNewCompany) {
+          payload.company_name = manualCompanyName;
+        } else {
+          payload.company_id = selectedCompanyId ? parseInt(selectedCompanyId) : undefined;
+        }
       }
 
       const res = await api.post('/tickets/', payload);
@@ -128,7 +137,9 @@ export default function Dashboard() {
       setNewTitle('');
       setNewDesc('');
       setCustomerEmail('');
-      setCompanyName('');
+      setSelectedCompanyId('');
+      setIsNewCompany(false);
+      setManualCompanyName('');
       setSelectedDeviceId('');
       setIsAddingNewDevice(false);
       setDeviceMake('');
@@ -138,7 +149,6 @@ export default function Dashboard() {
       setDeviceTypeId('');
       setDeviceWarrantyAvailable('no');
       setDeviceWarrantyDuration('');
-      setDevicePurchaseDate('');
       setDeviceWarrantyExpiryDate('');
       setAssignEngineerId('');
     } catch(e) {
@@ -184,14 +194,38 @@ export default function Dashboard() {
                       />
                     </div>
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-1">Company Name</label>
-                      <input
-                        type="text"
-                        className="w-full px-3 py-2 glass-input sm:text-sm"
-                        value={companyName}
-                        onChange={e => setCompanyName(e.target.value)}
-                        placeholder="Optional"
-                      />
+                      <div className="flex justify-between items-center mb-1">
+                        <label className="block text-sm font-medium text-slate-300">Company</label>
+                        <button
+                          type="button"
+                          onClick={() => setIsNewCompany(!isNewCompany)}
+                          className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors"
+                        >
+                          {isNewCompany ? 'Select Existing' : '+ Enter New'}
+                        </button>
+                      </div>
+                      
+                      {isNewCompany ? (
+                        <input
+                          type="text"
+                          className="w-full px-3 py-2 glass-input sm:text-sm"
+                          value={manualCompanyName}
+                          onChange={e => setManualCompanyName(e.target.value)}
+                          placeholder="Type Company Name"
+                          required
+                        />
+                      ) : (
+                        <select
+                          className="w-full px-3 py-2 glass-input sm:text-sm"
+                          value={selectedCompanyId}
+                          onChange={e => setSelectedCompanyId(e.target.value)}
+                        >
+                          <option value="" className="bg-slate-800 text-slate-200">-- Select Company --</option>
+                          {companies.map(c => (
+                            <option key={c.id} value={c.id} className="bg-slate-800 text-slate-200">{c.name}</option>
+                          ))}
+                        </select>
+                      )}
                     </div>
                   </div>
                   {user.role === 'admin' && (
@@ -325,16 +359,7 @@ export default function Dashboard() {
                         ></textarea>
                       </div>
 
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-300 mb-2">Purchase Date</label>
-                          <input 
-                            type="date"
-                            className="w-full px-3 py-2 glass-input sm:text-sm"
-                            value={devicePurchaseDate} 
-                            onChange={e => setDevicePurchaseDate(e.target.value)}
-                          />
-                        </div>
+                      <div className="grid grid-cols-1 gap-3">
                         <div>
                           <label className="block text-xs font-medium text-slate-300 mb-2">Warranty Available?</label>
                           <select 
@@ -348,31 +373,7 @@ export default function Dashboard() {
                         </div>
                       </div>
 
-                      {deviceWarrantyAvailable === 'yes' && (
-                        <div className="p-4 bg-blue-900/20 rounded-lg border border-blue-500/30 space-y-3">
-                          <div className="grid grid-cols-2 gap-3">
-                            <div>
-                              <label className="block text-xs font-medium text-slate-300 mb-2">Warranty Duration</label>
-                              <input 
-                                type="text" 
-                                placeholder="e.g. 12 months, 2 years"
-                                className="w-full px-3 py-2 glass-input sm:text-sm"
-                                value={deviceWarrantyDuration} 
-                                onChange={e => setDeviceWarrantyDuration(e.target.value)}
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-xs font-medium text-slate-300 mb-2">Warranty Expiry Date</label>
-                              <input 
-                                type="date"
-                                className="w-full px-3 py-2 glass-input sm:text-sm"
-                                value={deviceWarrantyExpiryDate} 
-                                onChange={e => setDeviceWarrantyExpiryDate(e.target.value)}
-                              />
-                            </div>
-                          </div>
-                        </div>
-                      )}
+                      {/* Warranty Simplified: Removed Duration and Expiry Date per user request */}
                     </div>
                   )}
                 </div>
@@ -423,10 +424,8 @@ export default function Dashboard() {
       )}
 
       {!showForm && (
-        user.role === 'admin' ? (
+        (user.role === 'admin' || user.role === 'staff') ? (
           <AdminDashboard tickets={tickets} devices={userDevices} setShowForm={setShowForm} showForm={showForm} onRefresh={fetchTicketsAndDevices} />
-        ) : user.role === 'staff' ? (
-          <EngineerDashboard />
         ) : (
           <CustomerDashboard tickets={tickets} devices={userDevices} user={user} showForm={showForm} setShowForm={setShowForm} />
         )

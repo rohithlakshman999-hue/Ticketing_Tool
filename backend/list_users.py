@@ -1,4 +1,5 @@
 from app.core.database import SessionLocal
+import app.models # ✅ Ensure all models are loaded
 from app.models.user import User
 
 db = SessionLocal()

@@ -14,8 +14,7 @@ function Devices() {
     model_number: '',
     serial_number: '',
     device_type_id: '',
-    purchase_date: '',
-    warranty_expiry_date: '',
+    warranty_available: false,
     description: ''
   });
   
@@ -32,7 +31,12 @@ function Devices() {
     try {
       const [typesRes, devicesRes] = await Promise.all([
         api.get('/devices/types'),
-        api.get('/devices/', { params: { type_id: filterType || undefined } })
+        api.get('/devices/', { 
+          params: { 
+            type_id: filterType || undefined,
+            only_with_tickets: user?.role === 'customer' ? true : undefined
+          } 
+        })
       ]);
       setDeviceTypes(typesRes.data);
       setDevices(devicesRes.data);
@@ -54,7 +58,7 @@ function Devices() {
       setShowModal(false);
       setFormData({
         product_name: '', model_number: '', serial_number: '', 
-        device_type_id: '', purchase_date: '', warranty_expiry_date: '', description: ''
+        device_type_id: '', warranty_available: false, description: ''
       });
       setSuccess('Device created successfully');
       fetchData();
@@ -261,24 +265,17 @@ function Devices() {
                 </div>
               </div>
 
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-1">
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Purchase Date</label>
-                  <input 
-                    type="date"
-                    value={formData.purchase_date}
-                    onChange={e => setFormData({...formData, purchase_date: e.target.value})}
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Warranty Available?</label>
+                  <select 
                     className="w-full glass-input text-sm"
-                  />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Warranty Expiry</label>
-                  <input 
-                    type="date"
-                    value={formData.warranty_expiry_date}
-                    onChange={e => setFormData({...formData, warranty_expiry_date: e.target.value})}
-                    className="w-full glass-input text-sm"
-                  />
+                    value={formData.warranty_available ? 'yes' : 'no'}
+                    onChange={e => setFormData({...formData, warranty_available: e.target.value === 'yes'})}
+                  >
+                    <option value="no" className="bg-slate-800 text-slate-200">No</option>
+                    <option value="yes" className="bg-slate-800 text-slate-200">Yes</option>
+                  </select>
                 </div>
               </div>
 

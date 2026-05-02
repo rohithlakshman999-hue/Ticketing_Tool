@@ -72,7 +72,7 @@ class DeviceResponse(DeviceBase):
     @property
     def warranty_status(self) -> str:
         if not self.warranty_available:
-            return "no_warranty"
+            return "expired"
 
         if not self.warranty_expiry_date:
             return "unknown"

@@ -42,3 +42,22 @@ class Device(Base):
     customer = relationship("User")
 
     tickets = relationship("Ticket", back_populates="device")
+
+    @property
+    def warranty_status(self):
+        if not self.warranty_available:
+            return "expired"
+        if not self.warranty_expiry_date:
+            return "unknown"
+        
+        from datetime import datetime
+        now = datetime.utcnow()
+        if self.warranty_expiry_date < now:
+            return "expired"
+        
+        # Expiring soon if < 30 days
+        diff = self.warranty_expiry_date - now
+        if diff.days < 30:
+            return "expiring_soon"
+        
+        return "under_warranty"

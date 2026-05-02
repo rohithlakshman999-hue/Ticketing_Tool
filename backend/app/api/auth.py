@@ -59,22 +59,58 @@ def register(user_in: UserCreate, db: Session = Depends(get_db)):
 
 @router.post("/login", response_model=Token)
 def login(form_data: OAuth2PasswordRequestForm = Depends(), db: Session = Depends(get_db)):
+    try:
+        user = db.query(User).filter(User.email == form_data.username).first()
 
-    user = db.query(User).filter(User.email == form_data.username).first()
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
 
-    if not user or not verify_password(form_data.password, user.hashed_password):
+        # ✅ Added try-except for password verification (bcrypt can fail on invalid hashes)
+        try:
+            is_valid = verify_password(form_data.password, user.hashed_password)
+        except Exception as e:
+            print(f"[ERROR] Password verification failed for {user.email}: {str(e)}")
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Authentication failed. Please reset your password.",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if not is_valid:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Incorrect email or password",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        access_token = create_access_token(data={"sub": user.email})
+
+        # Update last login
+        try:
+            from datetime import datetime
+            user.last_login = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            db.commit()
+        except Exception as db_err:
+            print(f"[WARNING] Could not update last_login: {str(db_err)}")
+            # Don't fail the whole login just because last_login update failed
+            db.rollback()
+
+        return {
+            "access_token": access_token,
+            "token_type": "bearer"
+        }
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"[CRITICAL] Unexpected login error: {str(e)}")
         raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect email or password",
-            headers={"WWW-Authenticate": "Bearer"},
+            status_code=500,
+            detail=f"Internal server error during login: {str(e)}"
         )
-
-    access_token = create_access_token(data={"sub": user.email})
-
-    return {
-        "access_token": access_token,
-        "token_type": "bearer"
-    }
 
 
 # ------------------- GOOGLE LOGIN -------------------
@@ -85,61 +121,103 @@ class GoogleToken(BaseModel):
 
 @router.post("/google", response_model=Token)
 def google_login(token_data: GoogleToken, db: Session = Depends(get_db)):
-
-    client_id = settings.GOOGLE_CLIENT_ID
-
-    if not client_id:
-        raise HTTPException(
-            status_code=400,
-            detail="Google OAuth not configured. Use email/password login."
-        )
-
     try:
-        idinfo = id_token.verify_oauth2_token(
-            token_data.token,
-            requests.Request(),
-            client_id,
-            clock_skew_in_seconds=30
-        )
+        client_id = settings.GOOGLE_CLIENT_ID
+
+        if not client_id:
+            raise HTTPException(
+                status_code=400,
+                detail="Google OAuth not configured on server. Use email/password login."
+            )
+
+        try:
+            idinfo = id_token.verify_oauth2_token(
+                token_data.token,
+                requests.Request(),
+                client_id,
+                clock_skew_in_seconds=30
+            )
+        except ValueError as e:
+            error_msg = str(e)
+            print(f"[ERROR] Google token verification failed: {error_msg}")
+            if "Token used too late" in error_msg:
+                raise HTTPException(status_code=400, detail="Google token expired. Please try again.")
+            elif "audience" in error_msg or "Wrong recipient" in error_msg:
+                raise HTTPException(status_code=400, detail="Google Client ID mismatch. Please check server configuration.")
+            else:
+                raise HTTPException(status_code=400, detail=f"Google verification failed: {error_msg}")
 
         email = idinfo.get("email")
         full_name = idinfo.get("name", "")
 
         if not email:
-            raise HTTPException(status_code=400, detail="No email in Google token")
+            raise HTTPException(status_code=400, detail="No email found in Google account.")
 
         user = db.query(User).filter(User.email == email).first()
 
         if not user:
-            random_password = str(uuid.uuid4())
-            user = User(
-                email=email,
-                full_name=full_name,
-                hashed_password=get_password_hash(random_password),
-                role=UserRole.customer
-            )
-            db.add(user)
-            db.commit()
-            db.refresh(user)
+            # Auto-register Google users
+            try:
+                random_password = str(uuid.uuid4())
+                user = User(
+                    email=email,
+                    full_name=full_name,
+                    hashed_password=get_password_hash(random_password),
+                    role=UserRole.customer,
+                    is_active=True
+                )
+                db.add(user)
+                db.commit()
+                db.refresh(user)
+                print(f"[SUCCESS] Auto-registered new Google user: {email}")
+            except Exception as reg_err:
+                db.rollback()
+                print(f"[ERROR] Failed to auto-register Google user: {str(reg_err)}")
+                raise HTTPException(status_code=500, detail="Failed to create user account from Google profile.")
 
         access_token = create_access_token(data={"sub": user.email})
+
+        # Update last login
+        try:
+            from datetime import datetime
+            user.last_login = datetime.utcnow().strftime("%Y-%m-%d %H:%M:%S")
+            db.commit()
+        except:
+            db.rollback()
 
         return {
             "access_token": access_token,
             "token_type": "bearer"
         }
 
-    except ValueError as e:
-        error_msg = str(e)
-        if "Token used too late" in error_msg:
-            raise HTTPException(status_code=400, detail="Google token expired. Please try again.")
-        elif "audience" in error_msg or "Wrong recipient" in error_msg:
-            raise HTTPException(status_code=400, detail="Google Client ID mismatch.")
-        else:
-            raise HTTPException(status_code=400, detail=f"Google verification failed: {error_msg}")
-
+    except HTTPException:
+        raise
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Google login failed: {str(e)}")
+        print(f"[CRITICAL] Unexpected Google Login error: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
+
+# ------------------- ADMIN PASSWORD RESET -------------------
+
+class PasswordReset(BaseModel):
+    new_password: str
+
+@router.put("/users/{user_id}/password")
+def reset_password(
+    user_id: int,
+    reset_in: PasswordReset,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+    
+    user.hashed_password = get_password_hash(reset_in.new_password)
+    db.commit()
+    return {"message": "Password reset successfully"}
 
 
 # ------------------- CURRENT USER -------------------
@@ -161,12 +239,14 @@ def get_engineers(
 
     engineers = db.query(User).filter(User.role == "staff").all()
 
+    # Final return
     return [
         {
             "id": e.id,
             "name": e.full_name or e.email,
             "email": e.email,
-            "designation": e.designation
+            "designation": e.designation,
+            "last_login": e.last_login
         }
         for e in engineers
     ]

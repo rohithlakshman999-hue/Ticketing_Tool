@@ -20,6 +20,9 @@ export default function AdminEngineersPage() {
   const [success, setSuccess] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
+  const [selectedEngineer, setSelectedEngineer] = useState(null);
+  const [newPassword, setNewPassword] = useState('');
+  const [passwordSuccess, setPasswordSuccess] = useState('');
 
   const fetchEngineers = async () => {
     setLoading(true);
@@ -73,11 +76,11 @@ export default function AdminEngineersPage() {
 
   const handleDeleteEngineer = async (engineerId) => {
     try {
-      // Note: You'll need to add a delete endpoint on the backend
-      // For now, this is a placeholder
-      setError('Delete functionality coming soon');
+      await api.delete(`/auth/users/${engineerId}`);
+      setSuccess('Engineer removed successfully');
+      fetchEngineers();
     } catch (e) {
-      setError('Failed to delete engineer');
+      setError(e.response?.data?.detail || 'Failed to delete engineer');
     } finally {
       setDeletingId(null);
     }
@@ -237,7 +240,14 @@ export default function AdminEngineersPage() {
               <tbody>
                 {engineers.map((engineer) => (
                   <tr key={engineer.id}>
-                    <td className="px-6 py-4 text-sm font-medium text-white">{engineer.name}</td>
+                    <td className="px-6 py-4 text-sm font-medium">
+                      <button 
+                        onClick={() => setSelectedEngineer(engineer)}
+                        className="text-white hover:text-blue-400 transition-colors font-bold underline underline-offset-4 decoration-white/20"
+                      >
+                        {engineer.name}
+                      </button>
+                    </td>
                     <td className="px-6 py-4 text-sm text-slate-300">{engineer.email}</td>
                     <td className="px-6 py-4 text-sm text-slate-300">{engineer.designation || '—'}</td>
                     <td className="px-6 py-4 text-sm">
@@ -266,12 +276,101 @@ export default function AdminEngineersPage() {
         <h3 className="font-semibold text-blue-300 mb-2">How to manage engineers:</h3>
         <ul className="text-sm text-blue-200/80 space-y-1.5 list-disc list-inside">
           <li>Click <strong className="text-blue-200">"Add Engineer"</strong> to create a new staff account</li>
-          <li>Enter their full name, email, and a temporary password</li>
-          <li>Share the password with them securely (recommend they change it on first login)</li>
-          <li>They'll automatically appear in ticket assignment dropdowns</li>
+          <li>Click on an <strong className="text-blue-200">Engineer's Name</strong> to view credentials, reset password, or see login history</li>
           <li>Each engineer gets a personal "Workbench" to view and update their assigned tickets</li>
+          <li>Admins can remove engineers if they are no longer part of the team</li>
         </ul>
       </div>
+
+      {/* Detail Modal */}
+      {selectedEngineer && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in">
+          <div className="glass-card w-full max-w-md p-8 relative animate-zoom-in">
+            <button 
+              onClick={() => {
+                setSelectedEngineer(null);
+                setNewPassword('');
+                setPasswordSuccess('');
+              }}
+              className="absolute top-4 right-4 text-slate-400 hover:text-white"
+            >
+              <X size={20} />
+            </button>
+            <h2 className="text-2xl font-bold text-white mb-6 flex items-center gap-3">
+              <Eye className="text-blue-400" /> Engineer Profile
+            </h2>
+            <div className="space-y-4">
+              <div className="grid grid-cols-2 gap-4">
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Full Name</label>
+                  <p className="text-sm text-white font-medium">{selectedEngineer.name}</p>
+                </div>
+                <div>
+                  <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Designation</label>
+                  <p className="text-sm text-slate-300">{selectedEngineer.designation || 'N/A'}</p>
+                </div>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Login Email / Username</label>
+                <p className="text-sm text-blue-400 font-medium">{selectedEngineer.email}</p>
+              </div>
+
+              <div>
+                <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Last Login History</label>
+                <p className="text-xs text-slate-400 italic">
+                  {selectedEngineer.last_login ? `Active since: ${selectedEngineer.last_login}` : 'No login history available yet'}
+                </p>
+              </div>
+
+              {/* Password Reset Section */}
+              <div className="pt-4 border-t border-white/5 space-y-3">
+                <label className="text-[10px] uppercase tracking-widest text-slate-500 font-bold">Reset Staff Password</label>
+                <div className="flex gap-2">
+                  <input 
+                    type="text" 
+                    placeholder="Enter new password"
+                    className="glass-input text-xs py-1.5 flex-1"
+                    value={newPassword}
+                    onChange={e => setNewPassword(e.target.value)}
+                  />
+                  <button 
+                    onClick={async () => {
+                      if (!newPassword) return;
+                      try {
+                        await api.put(`/auth/users/${selectedEngineer.id}/password`, { new_password: newPassword });
+                        setPasswordSuccess('Password reset successful!');
+                        setNewPassword('');
+                      } catch(e) {
+                        alert('Failed to reset password');
+                      }
+                    }}
+                    className="glass-button text-[10px] px-3 py-1.5"
+                  >
+                    Reset
+                  </button>
+                </div>
+                {passwordSuccess && <p className="text-[10px] text-green-400 font-medium">{passwordSuccess}</p>}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Delete Confirmation */}
+      {deletingId && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm">
+          <div className="glass-card w-full max-w-sm p-6 text-center">
+            <Trash2 className="mx-auto text-red-400 mb-4" size={40} />
+            <h3 className="text-lg font-bold text-white mb-2">Remove Engineer?</h3>
+            <p className="text-sm text-slate-400 mb-6">This will permanently remove the staff member from the system.</p>
+            <div className="flex gap-3">
+              <button onClick={() => setDeletingId(null)} className="flex-1 px-4 py-2 glass-button-secondary rounded-lg">Cancel</button>
+              <button onClick={() => handleDeleteEngineer(deletingId)} className="flex-1 px-4 py-2 bg-red-600/80 hover:bg-red-500 text-white rounded-lg border border-red-500/50">Remove</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -10,6 +10,7 @@ import TicketDetail from './pages/TicketDetail';
 import WorkTrackingDashboard from './pages/WorkTrackingDashboard';
 import AdminEngineersPage from './pages/AdminEngineersPage';
 import Devices from './pages/Devices';
+import Companies from './pages/Companies';
 
 import { AuthProvider, useAuth } from './context/AuthContext';
 
@@ -82,7 +83,7 @@ function AppRoutes() {
       <Route
         path="/tracking"
         element={
-          <ProtectedRoute role="admin">
+          <ProtectedRoute role="staff">
             <WorkTrackingDashboard />
           </ProtectedRoute>
         }
@@ -111,6 +112,15 @@ function AppRoutes() {
         element={
           <ProtectedRoute>
             <Devices />
+          </ProtectedRoute>
+        }
+      />
+
+      <Route
+        path="/companies"
+        element={
+          <ProtectedRoute role="admin">
+            <Companies />
           </ProtectedRoute>
         }
       />

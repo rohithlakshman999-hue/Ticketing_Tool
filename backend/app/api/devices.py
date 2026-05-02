@@ -68,17 +68,15 @@ def create_device(
 def get_devices(
     type_id: Optional[int] = None,
     customer_id: Optional[int] = None,
+    only_with_tickets: bool = False,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
     query = db.query(Device)
 
-    # Customer restrictions
+    # Customer restrictions: Only show devices THEY registered
     if current_user.role == UserRole.customer:
-        if current_user.company_id:
-            query = query.filter(Device.company_id == current_user.company_id)
-        else:
-            query = query.filter(Device.customer_id == current_user.id)
+        query = query.filter(Device.customer_id == current_user.id)
 
     else:
         # Admin/staff filter
@@ -87,6 +85,9 @@ def get_devices(
 
     if type_id:
         query = query.filter(Device.device_type_id == type_id)
+
+    if only_with_tickets:
+        query = query.filter(Device.tickets.any())
 
     return query.all()
 

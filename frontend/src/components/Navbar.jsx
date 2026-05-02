@@ -7,7 +7,8 @@ import {
   Ticket,
   Monitor,
   Wrench,
-  UserCheck
+  UserCheck,
+  Building2
 } from 'lucide-react';
 
 function Navbar() {
@@ -53,6 +54,13 @@ function Navbar() {
               <Link to="/engineers" className="flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors">
                 <UserCheck size={18} />
                 Engineers
+              </Link>
+            )}
+
+            {user.role === 'admin' && (
+              <Link to="/companies" className="flex items-center gap-1.5 text-slate-300 hover:text-white transition-colors">
+                <Building2 size={18} />
+                Companies
               </Link>
             )}
 

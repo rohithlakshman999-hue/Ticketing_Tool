@@ -421,6 +421,29 @@ function TicketDetail() {
             </div>
           </div>
 
+          {/* Customer Details Info */}
+          <div className="glass-card p-6">
+            <h3 className="text-sm font-semibold text-white uppercase tracking-wider mb-4 border-b border-white/10 pb-2 flex items-center gap-2">
+              <UserIcon size={16} className="text-slate-400" /> Customer Details
+            </h3>
+            <div className="space-y-4">
+              <div>
+                <span className="block text-xs font-medium text-slate-400 mb-1">Full Name</span>
+                <p className="text-sm text-white font-medium">{ticket.customer_name || 'N/A'}</p>
+              </div>
+              <div>
+                <span className="block text-xs font-medium text-slate-400 mb-1">Email Address</span>
+                <p className="text-sm text-blue-400 font-medium break-all">{ticket.customer_email || 'N/A'}</p>
+              </div>
+              {ticket.company_name && (
+                <div>
+                  <span className="block text-xs font-medium text-slate-400 mb-1">Company</span>
+                  <p className="text-sm text-slate-300 font-medium">{ticket.company_name}</p>
+                </div>
+              )}
+            </div>
+          </div>
+
           {/* Device Info */}
           {ticket.device && (
             <div className="glass-card p-6">
