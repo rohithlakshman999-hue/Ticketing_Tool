@@ -33,6 +33,7 @@ class Ticket(Base):
     device_type = Column(String)
     category = Column(String)
     contact_name = Column(String) # ✅ Manually entered customer name
+    contact_number = Column(String, nullable=True) # ✅ Manually entered phone number
 
     status = Column(Enum(TicketStatus), default=TicketStatus.open)
     priority = Column(Enum(TicketPriority), default=TicketPriority.low)

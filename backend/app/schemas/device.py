@@ -26,7 +26,7 @@ class DeviceTypeResponse(DeviceTypeBase):
 class DeviceBase(BaseModel):
     product_name: str
     model_number: str
-    serial_number: str
+    serial_number: Optional[str] = None
     description: Optional[str] = None
 
     purchase_date: Optional[date] = None

@@ -25,11 +25,19 @@ def create_company(
     if current_user.role != UserRole.admin:
         raise HTTPException(status_code=403, detail="Only admins can create companies")
     
-    existing = db.query(Company).filter(Company.name == company_in.name).first()
+    existing = db.query(Company).filter(
+        Company.name == company_in.name,
+        Company.contact_person == company_in.contact_person
+    ).first()
     if existing:
-        raise HTTPException(status_code=400, detail="Company already exists")
+        raise HTTPException(status_code=400, detail="This company with the same contact person already exists.")
     
-    company = Company(name=company_in.name)
+    company = Company(
+        name=company_in.name,
+        contact_person=company_in.contact_person,
+        phone=company_in.phone,
+        email=company_in.email
+    )
     db.add(company)
     db.commit()
     db.refresh(company)

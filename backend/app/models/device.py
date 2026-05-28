@@ -20,7 +20,7 @@ class Device(Base):
     id = Column(Integer, primary_key=True, index=True)
     product_name = Column(String, nullable=False)
     model_number = Column(String, nullable=False)
-    serial_number = Column(String, nullable=False)
+    serial_number = Column(String, nullable=True)
     description = Column(String, nullable=True)
 
     # Missing warranty fields

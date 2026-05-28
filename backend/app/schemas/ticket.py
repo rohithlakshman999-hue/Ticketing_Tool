@@ -12,6 +12,7 @@ class TicketBase(BaseModel):
     device_type: str
     category: str
     contact_name: Optional[str] = None
+    contact_number: Optional[str] = None
     priority: TicketPriority = TicketPriority.low
 
 

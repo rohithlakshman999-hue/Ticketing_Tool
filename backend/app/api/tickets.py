@@ -95,6 +95,7 @@ async def create_ticket(
         category=inferred_category,
         priority=inferred_priority,
         contact_name=ticket_in.contact_name,
+        contact_number=ticket_in.contact_number,
         customer_id=target_customer_id,
         created_by_id=current_user.id, # ✅ Set who created it
         assigned_technician_id=assigned_tech_id,
