@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import api from '../services/api';
 import { useAuth } from '../context/AuthContext';
-import { Building2, Plus, Trash2, Download, FileSpreadsheet, FileText, Table } from 'lucide-react';
+import { Building2, Plus, Trash2, Download, FileSpreadsheet, FileText, Table, ChevronRight, ChevronDown } from 'lucide-react';
 import { formatDateTime } from '../utils/date';
 import jsPDF from 'jspdf';
 import 'jspdf-autotable';
@@ -13,8 +13,16 @@ export default function Companies() {
   const [loading, setLoading] = useState(true);
   const [showAddForm, setShowAddForm] = useState(false);
   const [newName, setNewName] = useState('');
+  const [newContactPerson, setNewContactPerson] = useState('');
+  const [newPhone, setNewPhone] = useState('');
+  const [newEmail, setNewEmail] = useState('');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [expandedRow, setExpandedRow] = useState(null);
+
+  const toggleExpand = (id) => {
+    setExpandedRow(expandedRow === id ? null : id);
+  };
 
   const fetchCompanies = async () => {
     try {
@@ -35,8 +43,11 @@ export default function Companies() {
     e.preventDefault();
     setError(''); setSuccess('');
     try {
-      await api.post('/companies/', { name: newName });
+      await api.post('/companies/', { name: newName, contact_person: newContactPerson, phone: newPhone, email: newEmail });
       setNewName('');
+      setNewContactPerson('');
+      setNewPhone('');
+      setNewEmail('');
       setShowAddForm(false);
       setSuccess('Company added successfully');
       fetchCompanies();
@@ -60,8 +71,8 @@ export default function Companies() {
   // ------------------- EXPORT LOGIC -------------------
 
   const exportToCSV = () => {
-    const headers = ['ID', 'Name', 'Created At'];
-    const rows = companies.map(c => [c.id, c.name, formatDateTime(c.created_at)]);
+    const headers = ['ID', 'Name', 'Contact Person', 'Phone', 'Email', 'Created At'];
+    const rows = companies.map(c => [c.id, c.name, c.contact_person || '', c.phone || '', c.email || '', formatDateTime(c.created_at)]);
     
     let csvContent = "data:text/csv;charset=utf-8," 
       + headers.join(",") + "\n"
@@ -80,6 +91,9 @@ export default function Companies() {
     const data = companies.map(c => ({
       ID: c.id,
       Name: c.name,
+      'Contact Person': c.contact_person || '',
+      Phone: c.phone || '',
+      Email: c.email || '',
       'Created At': formatDateTime(c.created_at)
     }));
     const worksheet = XLSX.utils.json_to_sheet(data);
@@ -91,8 +105,8 @@ export default function Companies() {
   const exportToPDF = () => {
     const doc = new jsPDF();
     doc.text("Company Records", 14, 15);
-    const tableColumn = ["ID", "Name", "Created At"];
-    const tableRows = companies.map(c => [c.id, c.name, formatDateTime(c.created_at)]);
+    const tableColumn = ["ID", "Name", "Contact Person", "Phone", "Email", "Created At"];
+    const tableRows = companies.map(c => [c.id, c.name, c.contact_person || '', c.phone || '', c.email || '', formatDateTime(c.created_at)]);
 
     doc.autoTable({
       head: [tableColumn],
@@ -139,8 +153,8 @@ export default function Companies() {
 
       {showAddForm && (
         <div className="glass-card p-6 animate-fade-in-down">
-          <form onSubmit={handleAddCompany} className="flex flex-col sm:flex-row gap-4 items-end">
-            <div className="flex-1 w-full">
+          <form onSubmit={handleAddCompany} className="flex flex-col sm:flex-row gap-4 items-end flex-wrap">
+            <div className="flex-1 min-w-[200px]">
               <label className="block text-sm font-medium text-slate-300 mb-1">Company Name</label>
               <input
                 type="text"
@@ -149,6 +163,36 @@ export default function Companies() {
                 onChange={e => setNewName(e.target.value)}
                 className="w-full glass-input"
                 placeholder="e.g. Acme Corp"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-slate-300 mb-1">Contact Person</label>
+              <input
+                type="text"
+                value={newContactPerson}
+                onChange={e => setNewContactPerson(e.target.value)}
+                className="w-full glass-input"
+                placeholder="Name"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-slate-300 mb-1">Phone</label>
+              <input
+                type="text"
+                value={newPhone}
+                onChange={e => setNewPhone(e.target.value)}
+                className="w-full glass-input"
+                placeholder="Phone number"
+              />
+            </div>
+            <div className="flex-1 min-w-[200px]">
+              <label className="block text-sm font-medium text-slate-300 mb-1">Email</label>
+              <input
+                type="email"
+                value={newEmail}
+                onChange={e => setNewEmail(e.target.value)}
+                className="w-full glass-input"
+                placeholder="company@domain.com"
               />
             </div>
             <button type="submit" className="glass-button px-6 py-2.5 rounded-lg w-full sm:w-auto">
@@ -177,19 +221,49 @@ export default function Companies() {
             ) : companies.length === 0 ? (
               <tr><td colSpan="4" className="p-8 text-center text-slate-500">No companies found.</td></tr>
             ) : companies.map(company => (
-              <tr key={company.id} className="hover:bg-white/5 transition-colors">
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">#{company.id}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">{company.name}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDateTime(company.created_at)}</td>
-                <td className="px-6 py-4 whitespace-nowrap text-right">
-                  <button
-                    onClick={() => handleDeleteCompany(company.id)}
-                    className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
-                  >
-                    <Trash2 size={18} />
-                  </button>
-                </td>
-              </tr>
+              <React.Fragment key={company.id}>
+                <tr className="hover:bg-white/5 transition-colors">
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">#{company.id}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm font-medium text-white">
+                    <button 
+                      onClick={() => toggleExpand(company.id)}
+                      className="flex items-center gap-2 hover:text-blue-400 transition-colors focus:outline-none"
+                    >
+                      {expandedRow === company.id ? <ChevronDown size={16} /> : <ChevronRight size={16} />}
+                      {company.name}
+                    </button>
+                  </td>
+                  <td className="px-6 py-4 whitespace-nowrap text-sm text-slate-400">{formatDateTime(company.created_at)}</td>
+                  <td className="px-6 py-4 whitespace-nowrap text-right">
+                    <button
+                      onClick={() => handleDeleteCompany(company.id)}
+                      className="p-2 text-red-400 hover:bg-red-500/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 size={18} />
+                    </button>
+                  </td>
+                </tr>
+                {expandedRow === company.id && (
+                  <tr className="bg-white/5 animate-fade-in">
+                    <td colSpan="4" className="px-6 py-4">
+                      <div className="pl-8 space-y-2 text-sm">
+                        <div className="grid grid-cols-[150px_1fr] gap-2">
+                          <span className="text-slate-400">Contact Person:</span>
+                          <span className="text-white font-medium">{company.contact_person || 'Not Available'}</span>
+                        </div>
+                        <div className="grid grid-cols-[150px_1fr] gap-2">
+                          <span className="text-slate-400">Phone Number:</span>
+                          <span className="text-white font-medium">{company.phone || 'Not Available'}</span>
+                        </div>
+                        <div className="grid grid-cols-[150px_1fr] gap-2">
+                          <span className="text-slate-400">Email Address:</span>
+                          <span className="text-white font-medium">{company.email || 'Not Available'}</span>
+                        </div>
+                      </div>
+                    </td>
+                  </tr>
+                )}
+              </React.Fragment>
             ))}
           </tbody>
         </table>

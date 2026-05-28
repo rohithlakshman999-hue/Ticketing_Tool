@@ -6,6 +6,8 @@ import AdminDashboard from '../components/dashboard/AdminDashboard';
 import CustomerDashboard from '../components/dashboard/CustomerDashboard';
 import EngineerDashboard from './EngineerDashboard';
 import { Plus } from 'lucide-react';
+import Select from 'react-select';
+import CreatableSelect from 'react-select/creatable';
 
 export default function Dashboard() {
   const { user } = useAuth();
@@ -17,12 +19,11 @@ export default function Dashboard() {
   const [newTitle, setNewTitle] = useState('');
   const [newDesc, setNewDesc] = useState('');
   const [contactName, setContactName] = useState(''); // ✅ Added
+  const [contactNumber, setContactNumber] = useState(''); // ✅ Added
   const [deviceType, setDeviceType] = useState('Laptop');
-  const [selectedDeviceId, setSelectedDeviceId] = useState('');
   const [category, setCategory] = useState('Hardware');
   
-  // New Device Fields (Inline)
-  const [isAddingNewDevice, setIsAddingNewDevice] = useState(false);
+  // New Device Fields (Inline) - forced open
   const [deviceMake, setDeviceMake] = useState('');
   const [deviceModel, setDeviceModel] = useState('');
   const [deviceSerial, setDeviceSerial] = useState('');
@@ -38,16 +39,33 @@ export default function Dashboard() {
   
   // Admin proxy creation state
   const [customerEmail, setCustomerEmail] = useState('');
-  const [companyName, setCompanyName] = useState('');
   const [assignEngineerId, setAssignEngineerId] = useState('');
   const [engineers, setEngineers] = useState([]);
   const [companies, setCompanies] = useState([]);
-  const [selectedCompanyId, setSelectedCompanyId] = useState('');
-  const [isNewCompany, setIsNewCompany] = useState(false);
-  const [manualCompanyName, setManualCompanyName] = useState('');
+  
+  // For CreatableSelect
+  const [selectedCompany, setSelectedCompany] = useState(null);
 
   // Real-time hook
   const { lastMessage } = useWebSockets();
+
+  const customSelectStyles = {
+    control: (base) => ({
+      ...base,
+      background: 'rgba(255, 255, 255, 0.05)',
+      borderColor: 'rgba(255, 255, 255, 0.1)',
+      color: 'white'
+    }),
+    singleValue: (base) => ({ ...base, color: 'white' }),
+    input: (base) => ({ ...base, color: 'white' }),
+    menu: (base) => ({ ...base, background: '#1e293b' }),
+    option: (base, state) => ({
+      ...base,
+      background: state.isFocused ? '#334155' : '#1e293b',
+      color: 'white',
+      '&:active': { background: '#475569' }
+    })
+  };
 
   const fetchTicketsAndDevices = async () => {
     try {
@@ -92,40 +110,41 @@ export default function Dashboard() {
   const handleCreateTicket = async (e) => {
     e.preventDefault();
     try {
-      let finalDeviceId = selectedDeviceId;
-
-      // If adding a new device inline
-      if (isAddingNewDevice) {
-        const deviceRes = await api.post('/devices/', {
-          product_name: deviceMake,
-          model_number: deviceModel,
-          serial_number: deviceSerial,
-          description: deviceDescription,
-          device_type_id: parseInt(deviceTypeId),
-          purchase_date: null,
-          warranty_available: deviceWarrantyAvailable === 'yes',
-          warranty_duration: null,
-          warranty_expiry_date: null
-        });
-        finalDeviceId = deviceRes.data.id;
-      }
+      // Force Add New Device
+      const deviceRes = await api.post('/devices/', {
+        product_name: deviceMake,
+        model_number: deviceModel,
+        serial_number: deviceSerial || '', // ✅ Optional
+        description: deviceDescription, // Now called Configuration
+        device_type_id: parseInt(deviceTypeId),
+        purchase_date: null,
+        warranty_available: deviceWarrantyAvailable === 'yes',
+        warranty_duration: null,
+        warranty_expiry_date: null
+      });
+      const finalDeviceId = deviceRes.data.id;
 
       const payload = {
-        title: newTitle,
-        description: newDesc,
-        contact_name: contactName, // ✅ Send contact name
+        title: newTitle, // Nature of Issue
+        description: newDesc, // Condition of the Device
+        contact_name: contactName,
+        contact_number: contactNumber || undefined,
         device_type: deviceType,
-        device_id: finalDeviceId ? parseInt(finalDeviceId) : undefined,
+        device_id: finalDeviceId,
         category: category,
         priority: 'low'
       };
 
-      if ((user.role === 'admin' || user.role === 'staff') && customerEmail) {
-        payload.customer_email = customerEmail;
-        if (isNewCompany) {
-          payload.company_name = manualCompanyName;
-        } else {
-          payload.company_id = selectedCompanyId ? parseInt(selectedCompanyId) : undefined;
+      if ((user.role === 'admin' || user.role === 'staff')) {
+        if (customerEmail) {
+          payload.customer_email = customerEmail;
+        }
+        if (selectedCompany) {
+          if (selectedCompany.__isNew__) {
+             payload.company_name = selectedCompany.value;
+          } else {
+             payload.company_id = parseInt(selectedCompany.value);
+          }
         }
       }
 
@@ -138,22 +157,18 @@ export default function Dashboard() {
       setShowForm(false);
       setNewTitle('');
       setNewDesc('');
-      setContactName(''); // ✅ Reset
+      setContactName('');
+      setContactNumber('');
       setCustomerEmail('');
-      setSelectedCompanyId('');
-      setIsNewCompany(false);
-      setManualCompanyName('');
-      setSelectedDeviceId('');
-      setIsAddingNewDevice(false);
+      setSelectedCompany(null);
       setDeviceMake('');
       setDeviceModel('');
       setDeviceSerial('');
       setDeviceDescription('');
       setDeviceTypeId('');
       setDeviceWarrantyAvailable('no');
-      setDeviceWarrantyDuration('');
-      setDeviceWarrantyExpiryDate('');
       setAssignEngineerId('');
+      fetchTicketsAndDevices();
     } catch(e) {
       console.error(e);
       alert('Failed to create ticket. Please check your connection.');
@@ -184,239 +199,215 @@ export default function Dashboard() {
               
               {(user.role === 'admin' || user.role === 'staff') && (
                 <div className="p-5 bg-blue-900/20 rounded-xl border border-blue-500/30 mb-6 space-y-4 backdrop-blur-sm">
-                  <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                  <h4 className="text-md font-semibold text-blue-300 border-b border-blue-500/30 pb-2 mb-4">Section 1 — Customer Details</h4>
+                  
+                  {/* Row 1: Company */}
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Company</label>
+                    <CreatableSelect
+                      isClearable
+                      styles={customSelectStyles}
+                      placeholder="Search or Create Company..."
+                      value={selectedCompany}
+                      onChange={(newValue) => setSelectedCompany(newValue)}
+                      options={companies.map(c => ({ value: c.id, label: c.name }))}
+                    />
+                  </div>
+
+                  {/* Row 2: Customer Name, Email, Contact Number */}
+                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-1">Customer Email *</label>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Customer Name *</label>
+                      <input 
+                        type="text" 
+                        className="w-full px-3 py-2 glass-input sm:text-sm" 
+                        value={contactName} 
+                        onChange={e => setContactName(e.target.value)} 
+                        placeholder="e.g. John Doe"
+                        required 
+                      />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Customer Email <span className="text-slate-500 font-normal">(optional)</span></label>
                       <input
                         type="email"
                         className="w-full px-3 py-2 glass-input sm:text-sm"
                         value={customerEmail}
                         onChange={e => setCustomerEmail(e.target.value)}
                         placeholder="customer@company.com"
-                        required
                       />
                     </div>
                     <div>
-                      <div className="flex justify-between items-center mb-1">
-                        <label className="block text-sm font-medium text-slate-300">Company</label>
-                        <button
-                          type="button"
-                          onClick={() => setIsNewCompany(!isNewCompany)}
-                          className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors"
-                        >
-                          {isNewCompany ? 'Select Existing' : '+ Enter New'}
-                        </button>
-                      </div>
-                      
-                      {isNewCompany ? (
-                        <input
-                          type="text"
-                          className="w-full px-3 py-2 glass-input sm:text-sm"
-                          value={manualCompanyName}
-                          onChange={e => setManualCompanyName(e.target.value)}
-                          placeholder="Type Company Name"
-                          required
-                        />
-                      ) : (
-                        <select
-                          className="w-full px-3 py-2 glass-input sm:text-sm"
-                          value={selectedCompanyId}
-                          onChange={e => setSelectedCompanyId(e.target.value)}
-                        >
-                          <option value="" className="bg-slate-800 text-slate-200">-- Select Company --</option>
-                          {companies.map(c => (
-                            <option key={c.id} value={c.id} className="bg-slate-800 text-slate-200">{c.name}</option>
-                          ))}
-                        </select>
-                      )}
+                      <label className="block text-sm font-medium text-slate-300 mb-1">Contact Number <span className="text-slate-500 font-normal">(optional)</span></label>
+                      <input
+                        type="text"
+                        className="w-full px-3 py-2 glass-input sm:text-sm"
+                        value={contactNumber}
+                        onChange={e => setContactNumber(e.target.value)}
+                        placeholder="+1 234 567 890"
+                      />
                     </div>
                   </div>
-                  {user.role === 'admin' && (
-                    <div>
-                      <label className="block text-sm font-medium text-slate-300 mb-1">
-                        Assign Engineer <span className="text-slate-500 font-normal">(optional — auto-assigned if blank)</span>
-                      </label>
-                      <select
-                        className="w-full px-3 py-2 glass-input sm:text-sm"
-                        value={assignEngineerId}
-                        onChange={e => setAssignEngineerId(e.target.value)}
-                      >
-                        <option value="" className="bg-slate-800 text-slate-200">— Auto-assign —</option>
-                        {engineers.map(eng => (
-                          <option key={eng.id} value={eng.id} className="bg-slate-800 text-slate-200">{eng.name} ({eng.email})</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
+
+                  </div>
+              )}
+
+              {/* Customer view only needs Customer Name if not admin/staff */}
+              {user.role === 'customer' && (
+                <div className="p-5 bg-blue-900/20 rounded-xl border border-blue-500/30 mb-6 space-y-4 backdrop-blur-sm">
+                  <h4 className="text-md font-semibold text-blue-300 border-b border-blue-500/30 pb-2 mb-4">Section 1 — Customer Details</h4>
+                  <div className="mb-2">
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Customer Name *</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-3 py-2 glass-input sm:text-sm" 
+                      value={contactName} 
+                      onChange={e => setContactName(e.target.value)} 
+                      placeholder="e.g. John Doe"
+                      required 
+                    />
+                  </div>
                 </div>
               )}
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
+              {/* Row 4: Device Section */}
+              <div className="p-5 bg-white/5 rounded-xl border border-white/10 mb-6 space-y-4">
+                <h4 className="text-md font-semibold text-emerald-300 border-b border-white/10 pb-2 mb-4">Section 2 — Device Details</h4>
                 <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Subject *</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-3 py-2 glass-input sm:text-sm" 
-                    value={newTitle} 
-                    onChange={e => setNewTitle(e.target.value)} 
-                    required 
+                  <label className="block text-xs font-medium text-slate-300 mb-2">Device Type *</label>
+                  <Select
+                    styles={customSelectStyles}
+                    placeholder="Search Device Type..."
+                    value={deviceTypeId ? { value: deviceTypeId, label: deviceTypes.find(t => t.id === parseInt(deviceTypeId))?.name || 'Selected' } : null}
+                    onChange={(newValue) => setDeviceTypeId(newValue ? newValue.value : '')}
+                    options={deviceTypes.map(t => ({ value: t.id, label: t.name }))}
+                    required
                   />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Customer Name *</label>
-                  <input 
-                    type="text" 
-                    className="w-full px-3 py-2 glass-input sm:text-sm" 
-                    value={contactName} 
-                    onChange={e => setContactName(e.target.value)} 
-                    placeholder="e.g. John Doe"
-                    required 
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
-                <div>
-                  <div className="flex justify-between items-center mb-1">
-                    <label className="block text-sm font-medium text-slate-300">Device</label>
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setIsAddingNewDevice(!isAddingNewDevice);
-                        // Refresh device types when toggling to add new device
-                        if (!isAddingNewDevice) {
-                          api.get('/devices/types').then(r => setDeviceTypes(r.data)).catch(() => {});
-                        }
-                      }}
-                      className="text-xs text-blue-400 hover:text-blue-300 font-semibold transition-colors"
-                    >
-                      {isAddingNewDevice ? 'Select Existing' : '+ Add New Device'}
-                    </button>
+                  <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-4">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Category *</label>
+                    <Select
+                      styles={customSelectStyles}
+                      value={{ value: category, label: category }}
+                      onChange={(newValue) => setCategory(newValue.value)}
+                      options={[
+                        { value: 'Hardware', label: 'Hardware' },
+                        { value: 'Software', label: 'Software' },
+                        { value: 'Network', label: 'Network' },
+                        { value: 'Other', label: 'Other' }
+                      ]}
+                    />
                   </div>
-                  {!isAddingNewDevice ? (
-                    <select 
-                      className="w-full px-3 py-2 glass-input sm:text-sm" 
-                      value={selectedDeviceId} 
-                      onChange={e => setSelectedDeviceId(e.target.value)}
-                    >
-                      <option value="" className="bg-slate-800 text-slate-200">-- Select a device --</option>
-                      {userDevices.map(d => (
-                        <option key={d.id} value={d.id} className="bg-slate-800 text-slate-200">{d.product_name} ({d.serial_number})</option>
-                      ))}
-                    </select>
-                  ) : (
-                    <div className="space-y-4 p-5 bg-white/5 rounded-lg border border-white/10">
-                      <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-2">Device Type *</label>
-                        <select 
-                          required
-                          className="w-full px-3 py-2 glass-input sm:text-sm bg-slate-800 text-slate-200"
-                          value={deviceTypeId}
-                          onChange={e => setDeviceTypeId(e.target.value)}
-                        >
-                          <option value="">-- Select Device Type --</option>
-                          {deviceTypes && deviceTypes.length > 0 ? (
-                            deviceTypes.map(t => (
-                              <option key={t.id} value={t.id}>
-                                {t.name}
-                              </option>
-                            ))
-                          ) : (
-                            <option disabled>Loading device types...</option>
-                          )}
-                        </select>
-                      </div>
-
-                      <div className="grid grid-cols-2 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-300 mb-2">
-                            {deviceTypeId && deviceTypes.find(t => t.id === parseInt(deviceTypeId))?.name.toLowerCase().includes('laptop') && 
-                            !deviceTypes.find(t => t.id === parseInt(deviceTypeId))?.name.toLowerCase().includes('laptop ') ? 
-                            "Make / Brand *" : "Name / Make *"}
-                          </label>
-                          <input 
-                            type="text" 
-                            required
-                            className="w-full px-3 py-2 glass-input sm:text-sm"
-                            value={deviceMake} 
-                            onChange={e => setDeviceMake(e.target.value)}
-                          />
-                        </div>
-                        <div>
-                          <label className="block text-xs font-medium text-slate-300 mb-2">Model Number *</label>
-                          <input 
-                            type="text" 
-                            required
-                            className="w-full px-3 py-2 glass-input sm:text-sm"
-                            value={deviceModel} 
-                            onChange={e => setDeviceModel(e.target.value)}
-                          />
-                        </div>
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-2">Serial Number *</label>
-                        <input 
-                          type="text" 
-                          required
-                          className="w-full px-3 py-2 glass-input sm:text-sm"
-                          value={deviceSerial} 
-                          onChange={e => setDeviceSerial(e.target.value)}
-                        />
-                      </div>
-
-                      <div>
-                        <label className="block text-xs font-medium text-slate-300 mb-2">Description</label>
-                        <textarea 
-                          className="w-full px-3 py-2 glass-input sm:text-sm resize-none"
-                          rows="2"
-                          value={deviceDescription} 
-                          onChange={e => setDeviceDescription(e.target.value)}
-                        ></textarea>
-                      </div>
-
-                      <div className="grid grid-cols-1 gap-3">
-                        <div>
-                          <label className="block text-xs font-medium text-slate-300 mb-2">Warranty Available?</label>
-                          <select 
-                            className="w-full px-3 py-2 glass-input sm:text-sm"
-                            value={deviceWarrantyAvailable}
-                            onChange={e => setDeviceWarrantyAvailable(e.target.value)}
-                          >
-                            <option value="no" className="bg-slate-800 text-slate-200">No</option>
-                            <option value="yes" className="bg-slate-800 text-slate-200">Yes</option>
-                          </select>
-                        </div>
-                      </div>
-
-                      {/* Warranty Simplified: Removed Duration and Expiry Date per user request */}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-slate-300 mb-1">Category</label>
-                  <select 
-                    className="w-full px-3 py-2 glass-input sm:text-sm" 
-                    value={category} 
-                    onChange={e => setCategory(e.target.value)}
-                  >
-                    <option className="bg-slate-800 text-slate-200">Hardware</option>
-                    <option className="bg-slate-800 text-slate-200">Software</option>
-                    <option className="bg-slate-800 text-slate-200">Network</option>
-                    <option className="bg-slate-800 text-slate-200">Other</option>
-                  </select>
                 </div>
               </div>
 
-              <div>
-                <label className="block text-sm font-medium text-slate-300 mb-1">Description</label>
-                <textarea 
-                  className="w-full px-3 py-2 glass-input sm:text-sm resize-none" 
-                  rows="4" 
-                  value={newDesc} 
-                  onChange={e => setNewDesc(e.target.value)} 
-                  required
-                ></textarea>
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-2">
+                      {deviceTypeId && deviceTypes.find(t => t.id === parseInt(deviceTypeId))?.name.toLowerCase().includes('laptop') && 
+                      !deviceTypes.find(t => t.id === parseInt(deviceTypeId))?.name.toLowerCase().includes('laptop ') ? 
+                      "Make / Brand *" : "Name / Make *"}
+                    </label>
+                    <input 
+                      type="text" 
+                      required
+                      className="w-full px-3 py-2 glass-input sm:text-sm"
+                      value={deviceMake} 
+                      onChange={e => setDeviceMake(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-2">Model Number *</label>
+                    <input 
+                      type="text" 
+                      required
+                      className="w-full px-3 py-2 glass-input sm:text-sm"
+                      value={deviceModel} 
+                      onChange={e => setDeviceModel(e.target.value)}
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-2">Serial Number <span className="text-slate-500 font-normal">(optional)</span></label>
+                    <input 
+                      type="text" 
+                      className="w-full px-3 py-2 glass-input sm:text-sm"
+                      value={deviceSerial} 
+                      onChange={e => setDeviceSerial(e.target.value)}
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-xs font-medium text-slate-300 mb-2">Warranty Available?</label>
+                    <Select
+                      styles={customSelectStyles}
+                      value={{ value: deviceWarrantyAvailable, label: deviceWarrantyAvailable === 'yes' ? 'Yes' : 'No' }}
+                      onChange={(newValue) => setDeviceWarrantyAvailable(newValue.value)}
+                      options={[{ value: 'no', label: 'No' }, { value: 'yes', label: 'Yes' }]}
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-medium text-slate-300 mb-2">Configuration</label>
+                  <textarea 
+                    className="w-full px-3 py-2 glass-input sm:text-sm resize-none"
+                    rows="2"
+                    value={deviceDescription} 
+                    onChange={e => setDeviceDescription(e.target.value)}
+                    placeholder="Device specs, RAM, Storage, etc."
+                  ></textarea>
+                </div>
+              </div>
+
+              {/* Row 5 & 6: Category and Nature of Issue */}
+              <div className="p-5 bg-purple-900/20 rounded-xl border border-purple-500/30 mb-6 space-y-4 backdrop-blur-sm">
+                <h4 className="text-md font-semibold text-purple-300 border-b border-purple-500/30 pb-2 mb-4">Section 3 — Ticket Details</h4>
+
+                {/* Assign Engineer moved here */}
+                {user.role === 'admin' && (
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">
+                      Assign Engineer <span className="text-slate-500 font-normal">(optional — auto-assigned if blank)</span>
+                    </label>
+                    <Select
+                      isClearable
+                      styles={customSelectStyles}
+                      placeholder="Search Engineer..."
+                      value={assignEngineerId ? { value: assignEngineerId, label: engineers.find(e => e.id === parseInt(assignEngineerId))?.name || 'Selected' } : null}
+                      onChange={(newValue) => setAssignEngineerId(newValue ? newValue.value : '')}
+                      options={engineers.map(eng => ({ value: eng.id, label: `${eng.name} (${eng.email})` }))}
+                    />
+                  </div>
+                )}
+
+                <div className="grid grid-cols-1 gap-6">
+                  <div>
+                    <label className="block text-sm font-medium text-slate-300 mb-1">Nature of Issue *</label>
+                    <input 
+                      type="text" 
+                      className="w-full px-3 py-2 glass-input sm:text-sm" 
+                      value={newTitle} 
+                      onChange={e => setNewTitle(e.target.value)} 
+                      placeholder="e.g. Screen flickering"
+                      required 
+                    />
+                  </div>
+                </div>
+
+                {/* Row 7: Condition of the Device */}
+                <div>
+                  <label className="block text-sm font-medium text-slate-300 mb-1">Condition of the Device *</label>
+                  <textarea 
+                    className="w-full px-3 py-2 glass-input sm:text-sm resize-none" 
+                    rows="4" 
+                    value={newDesc} 
+                    onChange={e => setNewDesc(e.target.value)} 
+                    placeholder="Describe the current state of the device..."
+                    required
+                  ></textarea>
+                </div>
               </div>
 
               <div className="flex gap-3 pt-4">

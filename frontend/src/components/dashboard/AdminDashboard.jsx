@@ -311,7 +311,7 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
 
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-6">Status Distribution</h3>
-          <div className="h-64">
+          <div className="w-full h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <PieChart>
                 <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="rgba(255,255,255,0.1)">
@@ -327,7 +327,7 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
 
         <div className="glass-card p-6">
           <h3 className="text-lg font-semibold text-white mb-6">Ticket Volume</h3>
-          <div className="h-64">
+          <div className="w-full h-[300px]">
             <ResponsiveContainer width="100%" height="100%">
               <BarChart data={statusData}>
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
