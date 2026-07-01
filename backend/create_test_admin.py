@@ -21,7 +21,11 @@ try:
         db.commit()
         print("✅ Admin created with password: adminpassword")
     else:
-        print("✅ Admin already exists.")
+        print("✅ Admin already exists. Resetting password...")
+        exists.hashed_password = get_password_hash("adminpassword")
+        exists.role = UserRole.admin
+        db.commit()
+        print("✅ Admin password reset to 'adminpassword'")
 except Exception as e:
     print(f"❌ Error: {e}")
 finally:
