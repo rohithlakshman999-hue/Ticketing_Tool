@@ -131,7 +131,11 @@ def get_tickets(
     query = db.query(Ticket).options(
         selectinload(Ticket.comments),
         selectinload(Ticket.history),
-        selectinload(Ticket.device)
+        selectinload(Ticket.device),
+        selectinload(Ticket.customer),
+        selectinload(Ticket.company),
+        selectinload(Ticket.creator),
+        selectinload(Ticket.assigned_technician)
     )
 
     if current_user.role == UserRole.admin:
@@ -165,7 +169,12 @@ def get_all_tracking(
     query = db.query(Ticket).options(
         selectinload(Ticket.comments),
         selectinload(Ticket.history),
-        selectinload(Ticket.device)
+        selectinload(Ticket.device),
+        selectinload(Ticket.customer),
+        selectinload(Ticket.company),
+        selectinload(Ticket.creator),
+        selectinload(Ticket.assigned_technician),
+        selectinload(Ticket.activity)
     )
     if status:
         try:
@@ -187,11 +196,10 @@ def get_all_tracking(
 
     result = []
     for t in tickets:
-        engineer = db.query(User).filter(User.id == t.assigned_technician_id).first() if t.assigned_technician_id else None
-        customer = db.query(User).filter(User.id == t.customer_id).first()
-        latest_activity = db.query(TicketActivity).filter(
-            TicketActivity.ticket_id == t.id
-        ).order_by(TicketActivity.created_at.desc()).first()
+        engineer = t.assigned_technician
+        customer = t.customer
+        activities = sorted(t.activity, key=lambda a: a.created_at)
+        latest_activity = activities[-1] if activities else None
 
         result.append({
             "id": t.id,
@@ -484,13 +492,14 @@ def get_activity(
     if current_user.role == UserRole.customer and ticket.customer_id != current_user.id:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    entries = db.query(TicketActivity).filter(
+    from sqlalchemy.orm import selectinload
+    entries = db.query(TicketActivity).options(selectinload(TicketActivity.engineer)).filter(
         TicketActivity.ticket_id == ticket_id
     ).order_by(TicketActivity.created_at.asc()).all()
 
     result = []
     for e in entries:
-        engineer = db.query(User).filter(User.id == e.updated_by).first()
+        engineer = e.engineer
         result.append({
             "id": e.id,
             "status": e.status,
