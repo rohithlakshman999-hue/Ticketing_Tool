@@ -309,10 +309,10 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
           </div>
         </div>
 
-        <div className="glass-card p-6">
+        <div className="glass-card p-6 flex flex-col">
           <h3 className="text-lg font-semibold text-white mb-6">Status Distribution</h3>
-          <div className="w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full flex-1 min-h-[300px]">
+            <ResponsiveContainer width="100%" height={300}>
               <PieChart>
                 <Pie data={statusData} cx="50%" cy="50%" innerRadius={60} outerRadius={80} paddingAngle={5} dataKey="value" stroke="rgba(255,255,255,0.1)">
                   {statusData.map((entry, index) => (
@@ -325,10 +325,10 @@ export default function AdminDashboard({ tickets, devices = [], setShowForm, sho
           </div>
         </div>
 
-        <div className="glass-card p-6">
+        <div className="glass-card p-6 flex flex-col">
           <h3 className="text-lg font-semibold text-white mb-6">Ticket Volume</h3>
-          <div className="w-full h-[300px]">
-            <ResponsiveContainer width="100%" height="100%">
+          <div className="w-full flex-1 min-h-[300px]">
+            <ResponsiveContainer width="100%" height={300}>
               <BarChart data={statusData}>
                 <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fill: '#94a3b8', fontSize: 11 }} />
                 <YAxis allowDecimals={false} axisLine={false} tickLine={false} tick={{ fill: '#94a3b8' }} />

@@ -60,7 +60,7 @@ origins = [
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"], # ✅ Temporary fix for CORS issues in production
+    allow_origins=origins, # ✅ Use explicit origins instead of wildcard for allow_credentials=True
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
