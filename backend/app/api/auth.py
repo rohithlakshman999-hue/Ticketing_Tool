@@ -237,7 +237,7 @@ def get_engineers(
     if current_user.role not in ["admin", "staff"]:
         raise HTTPException(status_code=403, detail="Not authorized")
 
-    engineers = db.query(User).filter(User.role == "staff").all()
+    engineers = db.query(User).filter(User.role.in_([UserRole.staff, UserRole.admin])).all()
 
     # Final return
     return [

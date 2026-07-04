@@ -33,7 +33,7 @@ class TicketUpdate(BaseModel):
 
 
 class TicketAssignRequest(BaseModel):
-    engineer_id: int
+    engineer_id: Optional[int] = None
 
 
 class TicketStatusUpdate(BaseModel):

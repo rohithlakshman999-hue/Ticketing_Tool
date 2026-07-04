@@ -289,9 +289,14 @@ async def assign_engineer(
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
-    engineer = db.query(User).filter(User.id == assign_in.engineer_id, User.role == UserRole.staff).first()
-    if not engineer:
-        raise HTTPException(status_code=404, detail="Engineer (staff user) not found")
+    engineer_name = "unassigned"
+    if assign_in.engineer_id is not None:
+        engineer = db.query(User).filter(User.id == assign_in.engineer_id).first()
+        if not engineer:
+            raise HTTPException(status_code=404, detail="Engineer not found")
+        if engineer.role not in [UserRole.staff, UserRole.admin]:
+            raise HTTPException(status_code=400, detail="User is not authorized to be assigned to tickets")
+        engineer_name = engineer.full_name or engineer.email
 
     old_assignee = "unassigned"
     if ticket.assigned_technician_id:
@@ -303,11 +308,11 @@ async def assign_engineer(
         return ticket # No change, avoid duplicate logging
 
     ticket.assigned_technician_id = assign_in.engineer_id
-    ticket.status = TicketStatus.in_progress
+    ticket.status = TicketStatus.in_progress if assign_in.engineer_id is not None else TicketStatus.open
     ticket.updated_at = datetime.utcnow()
     
     _log_history(db, ticket.id, "assigned",
-                 old_assignee, engineer.full_name or engineer.email, current_user.id)
+                 old_assignee, engineer_name, current_user.id)
     # Only use history for assignment logs to avoid duplication in Activity feed
     db.commit()
     db.refresh(ticket)

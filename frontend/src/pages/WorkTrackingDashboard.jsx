@@ -91,11 +91,12 @@ export default function WorkTrackingDashboard() {
   };
 
   const handleAssign = async (ticketId, engineerId) => {
-    if (!engineerId) return;
     setActionError(''); setActionSuccess('');
     try {
-      await api.put(`/tickets/${ticketId}/assign`, { engineer_id: parseInt(engineerId) });
-      setActionSuccess(`Ticket #${ticketId} assigned successfully`);
+      // If engineerId is empty string, it means unassigned.
+      const payload = engineerId ? { engineer_id: parseInt(engineerId) } : { engineer_id: null };
+      await api.put(`/tickets/${ticketId}/assign`, payload);
+      setActionSuccess(`Ticket #${ticketId} assignment updated successfully`);
       fetchTickets();
     } catch (e) {
       setActionError('Failed to assign engineer');
