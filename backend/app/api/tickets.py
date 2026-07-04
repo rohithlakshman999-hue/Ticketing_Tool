@@ -282,42 +282,53 @@ async def assign_engineer(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    if current_user.role != UserRole.admin:
-        raise HTTPException(status_code=403, detail="Only admins can assign engineers")
+    try:
+        if current_user.role != UserRole.admin:
+            raise HTTPException(status_code=403, detail="Only admins can assign engineers")
 
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
-    if not ticket:
-        raise HTTPException(status_code=404, detail="Ticket not found")
+        ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+        if not ticket:
+            raise HTTPException(status_code=404, detail="Ticket not found")
 
-    engineer_name = "unassigned"
-    if assign_in.engineer_id is not None:
-        engineer = db.query(User).filter(User.id == assign_in.engineer_id).first()
-        if not engineer:
-            raise HTTPException(status_code=404, detail="Engineer not found")
-        if engineer.role not in [UserRole.staff, UserRole.admin]:
-            raise HTTPException(status_code=400, detail="User is not authorized to be assigned to tickets")
-        engineer_name = engineer.full_name or engineer.email
+        engineer_name = "unassigned"
+        if assign_in.engineer_id is not None:
+            engineer = db.query(User).filter(User.id == assign_in.engineer_id).first()
+            if not engineer:
+                raise HTTPException(status_code=404, detail="Engineer not found")
+            
+            # Using strings to be absolutely safe against enum/DB mismatches
+            role_str = str(engineer.role).replace("UserRole.", "")
+            if role_str not in ["staff", "admin"]:
+                raise HTTPException(status_code=400, detail="User is not authorized to be assigned to tickets")
+            
+            engineer_name = engineer.full_name or engineer.email or f"Engineer #{engineer.id}"
 
-    old_assignee = "unassigned"
-    if ticket.assigned_technician_id:
-        prev = db.query(User).filter(User.id == ticket.assigned_technician_id).first()
-        if prev:
-            old_assignee = prev.full_name or prev.email
+        old_assignee = "unassigned"
+        if ticket.assigned_technician_id:
+            prev = db.query(User).filter(User.id == ticket.assigned_technician_id).first()
+            if prev:
+                old_assignee = prev.full_name or prev.email or f"Engineer #{prev.id}"
 
-    if ticket.assigned_technician_id == assign_in.engineer_id:
-        return ticket # No change, avoid duplicate logging
+        if ticket.assigned_technician_id == assign_in.engineer_id:
+            return ticket # No change, avoid duplicate logging
 
-    ticket.assigned_technician_id = assign_in.engineer_id
-    ticket.status = TicketStatus.in_progress if assign_in.engineer_id is not None else TicketStatus.open
-    ticket.updated_at = datetime.utcnow()
-    
-    _log_history(db, ticket.id, "assigned",
-                 old_assignee, engineer_name, current_user.id)
-    # Only use history for assignment logs to avoid duplication in Activity feed
-    db.commit()
-    db.refresh(ticket)
-    await manager.broadcast({"type": "ticket_updated", "ticket_id": ticket.id})
-    return ticket
+        ticket.assigned_technician_id = assign_in.engineer_id
+        ticket.status = TicketStatus.in_progress if assign_in.engineer_id is not None else TicketStatus.open
+        ticket.updated_at = datetime.utcnow()
+        
+        _log_history(db, ticket.id, "assigned",
+                     old_assignee, engineer_name, current_user.id)
+        # Only use history for assignment logs to avoid duplication in Activity feed
+        db.commit()
+        db.refresh(ticket)
+        await manager.broadcast({"type": "ticket_updated", "ticket_id": ticket.id})
+        return ticket
+    except HTTPException:
+        raise
+    except Exception as e:
+        db.rollback()
+        print(f"[CRITICAL] Failed to assign engineer: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Internal server error: {str(e)}")
 
 
 # ─── Engineer Status Update ──────────────────────────────────────────────────
