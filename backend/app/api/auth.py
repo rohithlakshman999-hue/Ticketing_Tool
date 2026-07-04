@@ -250,3 +250,40 @@ def get_engineers(
         }
         for e in engineers
     ]
+
+# ------------------- DELETE USER -------------------
+
+@router.delete("/users/{user_id}")
+def delete_user(
+    user_id: int,
+    db: Session = Depends(get_db),
+    current_user: User = Depends(get_current_active_user)
+):
+    if current_user.role != UserRole.admin:
+        raise HTTPException(status_code=403, detail="Admin only")
+    
+    user = db.query(User).filter(User.id == user_id).first()
+    if not user:
+        raise HTTPException(status_code=404, detail="User not found")
+        
+    if user.id == current_user.id:
+        raise HTTPException(status_code=400, detail="Cannot delete your own account")
+
+    try:
+        # Nullify assignments so tickets go back to unassigned queue
+        from ..models.ticket import Ticket, TicketComment, TicketHistory, TicketActivity
+        db.query(Ticket).filter(Ticket.assigned_technician_id == user_id).update({Ticket.assigned_technician_id: None})
+        db.query(Ticket).filter(Ticket.customer_id == user_id).update({Ticket.customer_id: None})
+        db.query(Ticket).filter(Ticket.created_by_id == user_id).update({Ticket.created_by_id: None})
+        
+        db.query(TicketComment).filter(TicketComment.sender_id == user_id).update({TicketComment.sender_id: None})
+        db.query(TicketHistory).filter(TicketHistory.changed_by == user_id).update({TicketHistory.changed_by: None})
+        db.query(TicketActivity).filter(TicketActivity.updated_by == user_id).update({TicketActivity.updated_by: None})
+        
+        db.delete(user)
+        db.commit()
+    except Exception as e:
+        db.rollback()
+        raise HTTPException(status_code=400, detail=f"Cannot delete user due to existing relationships: {str(e)}")
+
+    return {"message": "User deleted successfully"}
