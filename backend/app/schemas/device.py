@@ -59,7 +59,7 @@ class DeviceUpdate(BaseModel):
 
 class DeviceResponse(DeviceBase):
     id: int
-    customer_id: int
+    customer_id: Optional[int] = None
     company_id: Optional[int] = None
     created_at: datetime
 

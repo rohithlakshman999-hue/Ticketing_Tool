@@ -60,7 +60,7 @@ class TicketCommentCreate(TicketCommentBase):
 class TicketCommentResponse(TicketCommentBase):
     id: int
     ticket_id: int
-    sender_id: int
+    sender_id: Optional[int] = None
     sender_name: Optional[str] = None
     created_at: datetime
 
@@ -119,7 +119,7 @@ class TicketResponse(TicketBase):
     id: int
     status: TicketStatus
 
-    customer_id: int
+    customer_id: Optional[int] = None
     customer_name: Optional[str] = None
     creator_name: Optional[str] = None
 
