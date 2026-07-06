@@ -23,6 +23,19 @@ router = APIRouter()
 
 # ─── Helper ────────────────────────────────────────────────────────────────
 
+from sqlalchemy.orm import selectinload
+
+def _get_fully_loaded_ticket(db: Session, ticket_id: int):
+    return db.query(Ticket).options(
+        selectinload(Ticket.comments),
+        selectinload(Ticket.history),
+        selectinload(Ticket.device),
+        selectinload(Ticket.customer),
+        selectinload(Ticket.company),
+        selectinload(Ticket.creator),
+        selectinload(Ticket.assigned_technician)
+    ).filter(Ticket.id == ticket_id).first()
+
 def _log_history(db, ticket_id, action, old_val, new_val, changed_by):
     db.add(TicketHistory(
         ticket_id=ticket_id,
@@ -116,7 +129,11 @@ async def create_ticket(
     db.commit()
 
     await manager.broadcast({"type": "ticket_created", "ticket_id": new_ticket.id})
-    return new_ticket
+    
+    # Eager load relationships for the response to prevent serialization errors
+    fully_loaded_ticket = _get_fully_loaded_ticket(db, new_ticket.id)
+    
+    return fully_loaded_ticket
 
 
 # ─── List Tickets ───────────────────────────────────────────────────────────
@@ -233,7 +250,7 @@ def get_ticket(
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
+    ticket = _get_fully_loaded_ticket(db, ticket_id)
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
     if current_user.role == UserRole.customer and ticket.customer_id != current_user.id:
@@ -268,9 +285,8 @@ async def update_ticket(
 
     ticket.updated_at = datetime.utcnow()
     db.commit()
-    db.refresh(ticket)
     await manager.broadcast({"type": "ticket_updated", "ticket_id": ticket.id})
-    return ticket
+    return _get_fully_loaded_ticket(db, ticket.id)
 
 
 # ─── Assign Engineer ─────────────────────────────────────────────────────────
@@ -310,7 +326,7 @@ async def assign_engineer(
                 old_assignee = prev.full_name or prev.email or f"Engineer #{prev.id}"
 
         if ticket.assigned_technician_id == assign_in.engineer_id:
-            return ticket # No change, avoid duplicate logging
+            return _get_fully_loaded_ticket(db, ticket.id) # No change, avoid duplicate logging
 
         ticket.assigned_technician_id = assign_in.engineer_id
         ticket.status = TicketStatus.in_progress if assign_in.engineer_id is not None else TicketStatus.open
@@ -320,9 +336,9 @@ async def assign_engineer(
                      old_assignee, engineer_name, current_user.id)
         # Only use history for assignment logs to avoid duplication in Activity feed
         db.commit()
-        db.refresh(ticket)
-        await manager.broadcast({"type": "ticket_updated", "ticket_id": ticket.id})
-        return ticket
+        
+        await manager.broadcast({"type": "ticket_assigned", "ticket_id": ticket.id})
+        return _get_fully_loaded_ticket(db, ticket.id)
     except HTTPException:
         raise
     except Exception as e:
@@ -352,7 +368,7 @@ async def update_status(
 
     old_status = ticket.status.value if hasattr(ticket.status, 'value') else str(ticket.status)
     if old_status == status_in.status.value:
-        return ticket # No change
+        return _get_fully_loaded_ticket(db, ticket.id) # No change
 
     ticket.status = status_in.status
     ticket.updated_at = datetime.utcnow()
@@ -368,9 +384,8 @@ async def update_status(
         ))
 
     db.commit()
-    db.refresh(ticket)
     await manager.broadcast({"type": "ticket_updated", "ticket_id": ticket.id})
-    return ticket
+    return _get_fully_loaded_ticket(db, ticket.id)
 
 
 # ─── Delete Ticket ───────────────────────────────────────────────────────────
