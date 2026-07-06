@@ -101,7 +101,9 @@ export default function Dashboard() {
   // Listen for real-time ticket events
   useEffect(() => {
     if (lastMessage) {
-      if (lastMessage.type === 'ticket_created' || lastMessage.type === 'ticket_updated') {
+      if (lastMessage.type === 'ticket_created' || 
+          lastMessage.type === 'ticket_updated' || 
+          lastMessage.type === 'ticket_deleted') {
         fetchTicketsAndDevices();
       }
     }

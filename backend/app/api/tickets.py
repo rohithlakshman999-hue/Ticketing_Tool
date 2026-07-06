@@ -244,6 +244,12 @@ def get_all_tracking(
 
 # ─── Get Single Ticket ──────────────────────────────────────────────────────
 
+@router.get("/debug")
+def get_debug_tickets(db: Session = Depends(get_db)):
+    from sqlalchemy import text
+    result = db.execute(text("SELECT id, title, customer_id FROM tickets")).fetchall()
+    return [{"id": r[0], "title": r[1], "customer_id": r[2]} for r in result]
+
 @router.get("/{ticket_id}", response_model=TicketResponse)
 def get_ticket(
     ticket_id: int,
@@ -390,23 +396,24 @@ async def update_status(
 
 # ─── Delete Ticket ───────────────────────────────────────────────────────────
 
-@router.delete("/{ticket_id}")
+@router.delete("/{ticket_id}", status_code=204)
 async def delete_ticket(
     ticket_id: int,
     db: Session = Depends(get_db),
     current_user: User = Depends(get_current_active_user)
 ):
-    if current_user.role != UserRole.admin:
-        raise HTTPException(status_code=403, detail="Only admins can delete tickets")
-
+    if current_user.role not in [UserRole.admin, UserRole.staff]:
+        raise HTTPException(status_code=403, detail="Not enough permissions")
+    
     ticket = db.query(Ticket).filter(Ticket.id == ticket_id).first()
     if not ticket:
         raise HTTPException(status_code=404, detail="Ticket not found")
 
     db.delete(ticket)
     db.commit()
+    
     await manager.broadcast({"type": "ticket_deleted", "ticket_id": ticket_id})
-    return {"message": f"Ticket #{ticket_id} deleted successfully"}
+    return None
 
 
 # ─── Comments ────────────────────────────────────────────────────────────────

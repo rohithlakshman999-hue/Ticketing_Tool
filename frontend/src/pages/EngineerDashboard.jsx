@@ -45,7 +45,7 @@ export default function EngineerDashboard() {
 
   useEffect(() => { fetchTickets(); }, []);
   useEffect(() => {
-    if (lastMessage && (lastMessage.type === 'ticket_updated' || lastMessage.type === 'ticket_created')) {
+    if (lastMessage && (lastMessage.type === 'ticket_updated' || lastMessage.type === 'ticket_created' || lastMessage.type === 'ticket_deleted')) {
       fetchTickets();
     }
   }, [lastMessage]);
