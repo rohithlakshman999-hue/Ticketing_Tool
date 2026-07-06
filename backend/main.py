@@ -64,6 +64,19 @@ def on_startup():
                     conn.execute(text("ALTER TABLE ticket_activity ADD COLUMN status TEXT DEFAULT 'open'"))
                 if "updated_by" not in columns_activity:
                     conn.execute(text("ALTER TABLE ticket_activity ADD COLUMN updated_by INTEGER"))
+            
+            # POSTGRESQL SEQUENCE FIX (Fixes UniqueViolation after manual data imports)
+            if engine.dialect.name == "postgresql":
+                print("Fixing PostgreSQL sequences...")
+                tables = inspector.get_table_names()
+                for table in tables:
+                    try:
+                        seq_name = f"{table}_id_seq"
+                        # Only fix if there's data in the table to avoid NULL max(id)
+                        conn.execute(text(f"SELECT setval('{seq_name}', COALESCE((SELECT MAX(id) FROM {table}), 1), true)"))
+                    except Exception as seq_e:
+                        # Ignore errors for tables without standard id sequences
+                        pass
                     
         print("[SUCCESS] Database connected and all columns verified/migrated")
     except Exception as e:
