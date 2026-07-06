@@ -272,6 +272,8 @@ def delete_user(
     try:
         # Nullify assignments so tickets go back to unassigned queue
         from ..models.ticket import Ticket, TicketComment, TicketHistory, TicketActivity
+        from ..models.device import Device
+        
         db.query(Ticket).filter(Ticket.assigned_technician_id == user_id).update({Ticket.assigned_technician_id: None})
         db.query(Ticket).filter(Ticket.customer_id == user_id).update({Ticket.customer_id: None})
         db.query(Ticket).filter(Ticket.created_by_id == user_id).update({Ticket.created_by_id: None})
@@ -279,6 +281,8 @@ def delete_user(
         db.query(TicketComment).filter(TicketComment.sender_id == user_id).update({TicketComment.sender_id: None})
         db.query(TicketHistory).filter(TicketHistory.changed_by == user_id).update({TicketHistory.changed_by: None})
         db.query(TicketActivity).filter(TicketActivity.updated_by == user_id).update({TicketActivity.updated_by: None})
+        
+        db.query(Device).filter(Device.customer_id == user_id).update({Device.customer_id: None})
         
         db.delete(user)
         db.commit()
