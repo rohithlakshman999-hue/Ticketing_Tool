@@ -29,10 +29,10 @@ def on_startup():
             if 'tickets' in inspector.get_table_names():
                 columns_tickets = [c['name'] for c in inspector.get_columns('tickets')]
                 if "contact_name" not in columns_tickets:
-                    print("Adding contact_name column to tickets...")
                     conn.execute(text("ALTER TABLE tickets ADD COLUMN contact_name TEXT"))
+                if "contact_number" not in columns_tickets:
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN contact_number TEXT"))
                 if "created_by_id" not in columns_tickets:
-                    print("Adding created_by_id column to tickets...")
                     conn.execute(text("ALTER TABLE tickets ADD COLUMN created_by_id INTEGER"))
             
             # USERS
@@ -49,7 +49,6 @@ def on_startup():
             if 'devices' in inspector.get_table_names():
                 columns_devices = [c['name'] for c in inspector.get_columns('devices')]
                 if "purchase_date" not in columns_devices:
-                    # using TEXT for datetime fallback in SQLite, or standard timestamp
                     conn.execute(text("ALTER TABLE devices ADD COLUMN purchase_date TEXT"))
                 if "warranty_available" not in columns_devices:
                     conn.execute(text("ALTER TABLE devices ADD COLUMN warranty_available INTEGER DEFAULT 0"))
@@ -57,7 +56,15 @@ def on_startup():
                     conn.execute(text("ALTER TABLE devices ADD COLUMN warranty_duration TEXT"))
                 if "warranty_expiry_date" not in columns_devices:
                     conn.execute(text("ALTER TABLE devices ADD COLUMN warranty_expiry_date TEXT"))
-            
+                    
+            # TICKET ACTIVITY
+            if 'ticket_activity' in inspector.get_table_names():
+                columns_activity = [c['name'] for c in inspector.get_columns('ticket_activity')]
+                if "status" not in columns_activity:
+                    conn.execute(text("ALTER TABLE ticket_activity ADD COLUMN status TEXT DEFAULT 'open'"))
+                if "updated_by" not in columns_activity:
+                    conn.execute(text("ALTER TABLE ticket_activity ADD COLUMN updated_by INTEGER"))
+                    
         print("[SUCCESS] Database connected and all columns verified/migrated")
     except Exception as e:
         print("[ERROR] Database startup/migration failed:", str(e))
