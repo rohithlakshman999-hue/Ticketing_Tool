@@ -23,18 +23,42 @@ def on_startup():
         # 2. Auto-Migrate columns using SQLAlchemy (Works for SQLite and Postgres)
         from sqlalchemy import text, inspect
         inspector = inspect(engine)
-        columns = [c['name'] for c in inspector.get_columns('tickets')]
         
         with engine.begin() as conn:
-            if "contact_name" not in columns:
-                print("Adding contact_name column...")
-                conn.execute(text("ALTER TABLE tickets ADD COLUMN contact_name TEXT"))
-            if "created_by_id" not in columns:
-                print("Adding created_by_id column...")
-                # SQLite and Postgres handle integer types slightly differently but TEXT/INTEGER is safe
-                conn.execute(text("ALTER TABLE tickets ADD COLUMN created_by_id INTEGER"))
+            # TICKETS
+            if 'tickets' in inspector.get_table_names():
+                columns_tickets = [c['name'] for c in inspector.get_columns('tickets')]
+                if "contact_name" not in columns_tickets:
+                    print("Adding contact_name column to tickets...")
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN contact_name TEXT"))
+                if "created_by_id" not in columns_tickets:
+                    print("Adding created_by_id column to tickets...")
+                    conn.execute(text("ALTER TABLE tickets ADD COLUMN created_by_id INTEGER"))
             
-        print("[SUCCESS] Database connected and columns verified")
+            # USERS
+            if 'users' in inspector.get_table_names():
+                columns_users = [c['name'] for c in inspector.get_columns('users')]
+                if "company_id" not in columns_users:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN company_id INTEGER"))
+                if "designation" not in columns_users:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN designation TEXT"))
+                if "last_login" not in columns_users:
+                    conn.execute(text("ALTER TABLE users ADD COLUMN last_login TEXT"))
+
+            # DEVICES
+            if 'devices' in inspector.get_table_names():
+                columns_devices = [c['name'] for c in inspector.get_columns('devices')]
+                if "purchase_date" not in columns_devices:
+                    # using TEXT for datetime fallback in SQLite, or standard timestamp
+                    conn.execute(text("ALTER TABLE devices ADD COLUMN purchase_date TEXT"))
+                if "warranty_available" not in columns_devices:
+                    conn.execute(text("ALTER TABLE devices ADD COLUMN warranty_available INTEGER DEFAULT 0"))
+                if "warranty_duration" not in columns_devices:
+                    conn.execute(text("ALTER TABLE devices ADD COLUMN warranty_duration TEXT"))
+                if "warranty_expiry_date" not in columns_devices:
+                    conn.execute(text("ALTER TABLE devices ADD COLUMN warranty_expiry_date TEXT"))
+            
+        print("[SUCCESS] Database connected and all columns verified/migrated")
     except Exception as e:
         print("[ERROR] Database startup/migration failed:", str(e))
 
