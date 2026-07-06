@@ -69,6 +69,20 @@ def on_startup():
     except Exception as e:
         print("[ERROR] Database startup/migration failed:", str(e))
 
+import traceback
+from fastapi.responses import JSONResponse
+from fastapi import Request
+
+@app.exception_handler(Exception)
+async def global_exception_handler(request: Request, exc: Exception):
+    tb = traceback.format_exc()
+    print(f"[GLOBAL EXCEPTION] {tb}")
+    return JSONResponse(
+        status_code=500,
+        content={"detail": "Internal Server Error", "traceback": tb},
+        headers={"Access-Control-Allow-Origin": "*"}
+    )
+
 
 # ------------------- CORS CONFIG (FINAL) -------------------
 
