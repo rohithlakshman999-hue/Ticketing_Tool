@@ -43,8 +43,8 @@ def on_startup():
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # ✅ Wildcard ensures CORS headers on ALL responses including errors
-    allow_credentials=False,  # Must be False when using allow_origins=["*"]
+    allow_origins=["https://ticketingtool.vercel.app", "http://localhost:5173", "http://localhost:3000"],
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
